@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Generated with glade 3.20.0 -->
+<interface domain="piper">
+  <requires lib="gtk+" version="3.4"/>
+  <object class="GtkAboutDialog" id="about_dialog">
+    <property name="can_focus">False</property>
+    <property name="modal">True</property>
+    <property name="type_hint">normal</property>
+    <property name="program_name">Softbook</property>
+    <property name="version">0.0</property>
+    <property name="copyright" translatable="yes">Copyright © 2017 Eddy Castillo</property>
+    <property name="website">https://github.com/dyskette/softbook</property>
+    <property name="website_label" translatable="yes">Visit Softbook's website</property>
+    <property name="authors">Maintainers:
+    Eddy Castillo &lt;dyskette@gmail.com&gt;
+
+Contributors:
+	Geronimo placeholder &lt;geronimo@placeholder.com&gt;
+    </property>
+    <property name="artists">Eddy Castillo &lt;dyskette@gmail.com&gt;</property>
+    <property name="logo_icon_name">firefox</property>
+    <property name="license_type">gpl-3-0</property>
+    <child internal-child="vbox">
+      <object class="GtkBox">
+        <property name="can_focus">False</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox">
+            <property name="can_focus">False</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+    <child>
+      <placeholder/>
+    </child>
+  </object>
+</interface>

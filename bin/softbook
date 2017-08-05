@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+
+import sys
+import locale
+import gettext
+
+localedir = '@localedir@'
+
+locale.bindtextdomain('softbook', localedir)
+locale.textdomain('softbook')
+gettext.bindtextdomain('softbook', localedir)
+gettext.textdomain('softbook')
+
+def main():
+    sys.path.insert(1, '@pythondir@')
+    from softbook import application
+    app = application.Application()
+
+    try:
+        ret = app.run(sys.argv)
+    except SystemExit as e:
+        ret = e.code
+
+    sys.exit(ret)
+
+if __name__ == '__main__':
+    main()
