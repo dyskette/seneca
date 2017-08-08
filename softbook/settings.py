@@ -26,12 +26,12 @@ class Settings:
 
         self.default = {'margin' : '20',
                         'color' : 'light',
-                        'fontfamily' : 'sans-serif',
+                        'fontfamily' : 'Sans',
                         'fontweight' : '400',
                         'fontstyle' : 'normal',
                         'fontstretch' : 'normal',
                         'fontsize' : '20',
-                        'lineheight' : '1.3',
+                        'lineheight' : '1.6',
                         'paginate' : 'yes' }
 
         self.load()
