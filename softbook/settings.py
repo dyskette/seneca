@@ -15,9 +15,113 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-Class Settings():
-    def __init__(self):
-        pass
+import os
+import configparser
 
-    def set_setting(self):
-        pass
+class Settings:
+    def __init__(self):
+        app = 'softreader'
+        self.path = os.path.join(os.path.expanduser('~'), '.config', app, 'settings.ini')
+        self.conf = configparser.ConfigParser()
+
+        self.default = {'margin' : '20',
+                        'color' : 'light',
+                        'fontfamily' : 'sans-serif',
+                        'fontweight' : '400',
+                        'fontstyle' : 'normal',
+                        'fontstretch' : 'normal',
+                        'fontsize' : '20',
+                        'lineheight' : '1.3',
+                        'paginate' : 'yes' }
+
+        self.load()
+
+    def load(self):
+        if os.path.exists(self.path):
+            self.conf.read(self.path)
+        else:
+            _dir = os.path.split(self.path)[0]
+            if not os.path.exists(_dir):
+                os.makedirs(_dir)
+
+            self.conf['Settings'] = self.default
+            self.save()
+
+    def save(self):
+        with open(self.path, 'w') as configfile:
+            self.conf.write(configfile)
+
+    @property
+    def margin(self):
+        return int(self.conf['Settings']['margin'])
+
+    @margin.setter
+    def margin(self, value):
+        self.conf['Settings']['margin'] = str(value)
+
+    @property
+    def color(self):
+        return self.conf['Settings']['color']
+
+    @color.setter
+    def color(self, value):
+        self.conf['Settings']['color'] = value
+
+    @property
+    def fontfamily(self):
+        return self.conf['Settings']['fontfamily']
+
+    @fontfamily.setter
+    def fontfamily(self, value):
+        self.conf['Settings']['fontfamily'] = value
+
+    @property
+    def fontweight(self):
+        return int(self.conf['Settings']['fontweight'])
+
+    @fontweight.setter
+    def fontweight(self, value):
+        self.conf['Settings']['fontweight'] = str(value)
+
+    @property
+    def fontstyle(self):
+        return self.conf['Settings']['fontstyle']
+
+    @fontstyle.setter
+    def fontstyle(self, value):
+        self.conf['Settings']['fontstyle'] = value
+
+    @property
+    def fontstretch(self):
+        return self.conf['Settings']['fontstretch']
+
+    @fontstretch.setter
+    def fontstretch(self, value):
+        self.conf['Settings']['fontstretch'] = value
+
+    @property
+    def fontsize(self):
+        return int(self.conf['Settings']['fontsize'])
+
+    @fontsize.setter
+    def fontsize(self, value):
+        self.conf['Settings']['fontsize'] = str(value)
+
+    @property
+    def lineheight(self):
+        return float(self.conf['Settings']['lineheight'])
+
+    @lineheight.setter
+    def lineheight(self, value):
+        self.conf['Settings']['lineheight'] = str(value)
+
+    @property
+    def paginate(self):
+        return self.conf['Settings'].getboolean('paginate')
+
+    @paginate.setter
+    def paginate(self, value):
+        if value:
+            self.conf['Settings']['paginate'] = 'yes'
+        else:
+            self.conf['Settings']['paginate'] = 'no'
