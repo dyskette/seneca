@@ -1,6 +1,6 @@
 # font.py
 #
-# Copyright (C) 2017 Dylan Smith
+# Copyright (C) 2017 Eddy Castillo
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -33,23 +33,36 @@ class pangoFont:
         Returns:
             Pango.FontDescription
         """
+        styles = { 'normal': Pango.Style.NORMAL,
+                   'oblique': Pango.Style.OBLIQUE,
+                   'italic': Pango.Style.ITALIC }
 
-        __fstring = '{0} {1} {2} {3} {4}'.format(fontfamily,
-                                                 fontweight,
-                                                 fontstyle,
-                                                 fontstretch,
-                                                 fontsize)
-        self.desc = Pango.FontDescription.from_string(__fstring)
-        print(__fstring)
-        print(self.desc.get_family())
-        print(self.desc.get_weight())
-        print(self.desc.get_style())
-        print(self.desc.get_stretch())
-        print(self.desc.get_size())
+        stretches = { 'ultra-condensed': Pango.Stretch.ULTRA_CONDENSED,
+                      'extra-condensed': Pango.Stretch.EXTRA_CONDENSED,
+                      'condensed': Pango.Stretch.CONDENSED,
+                      'semi-condensed': Pango.Stretch.SEMI_CONDENSED,
+                      'normal': Pango.Stretch.NORMAL,
+                      'semi-expanded': Pango.Stretch.SEMI_EXPANDED,
+                      'expanded': Pango.Stretch.EXPANDED,
+                      'extra-expanded': Pango.Stretch.EXTRA_EXPANDED,
+                      'ultra-expanded': Pango.Stretch.ULTRA_EXPANDED }
+
+        self.desc = Pango.FontDescription.new()
+        self.desc.set_family(fontfamily)
+        self.desc.set_weight(Pango.Weight(fontweight))
+        self.desc.set_style(styles[fontstyle])
+        self.desc.set_stretch(stretches[fontstretch])
+        self.desc.set_size(fontsize * Pango.SCALE)
 
 class cssFont:
 
     def __init__(self, pango_fontdesc):
+        """ Get css-like values from a pango font description.
+
+        Parameters:
+            pango_fontdesc (Pango.FontDescription)
+        """
+
         self.family = pango_fontdesc.get_family()
         self.weight = pango_fontdesc.get_weight().numerator
         self.style = pango_fontdesc.get_style().value_nick
