@@ -312,6 +312,7 @@
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="action_name">win.color</property>
+                <property name="action-target">'light'</property>
                 <property name="text" translatable="yes">Light</property>
               </object>
               <packing>
@@ -326,6 +327,7 @@
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="action_name">win.color</property>
+                <property name="action-target">'sepia'</property>
                 <property name="text" translatable="yes">Sepia</property>
               </object>
               <packing>
@@ -340,6 +342,7 @@
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="action_name">win.color</property>
+                <property name="action-target">'dark'</property>
                 <property name="text" translatable="yes">Dark</property>
               </object>
               <packing>
