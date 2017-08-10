@@ -300,8 +300,8 @@ class Book(WebKit2.WebView):
         except Exception as e:
             raise ValueError('Error getting the scroll width: {0}'.format(e))
 
-        self.__scroll_width = int(self.get_title())
-        logging.info('Vertical scroll length: {0}'.format(self.__scroll_width))
+        self.__scroll_width = int(self.get_property('title'))
+        logging.info('Scroll width: {0}'.format(self.__scroll_width))
 
         # When doing a page_prev, don't jump to the beginning of the chapter,
         # instead show the end of the chapter. But only if it's long enough.
