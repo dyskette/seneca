@@ -48,6 +48,8 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         self.init_template()
         self.book = None
 
+        self.gtk_settings = Gtk.Settings.get_default()
+
         variant = GLib.Variant('s', 'light')
         self.color_action = Gio.SimpleAction.new_stateful('color', variant.get_type(), variant)
         self.color_action.connect('change-state', self.on_change_color)
@@ -78,11 +80,27 @@ class ApplicationWindow(Gtk.ApplicationWindow):
             self.font_label.set_label('{0}px'.format(self.book.get_fontsize()))
             self.lineheight_label.set_label('{0}pt'.format(self.book.get_lineheight()))
 
-            variant = GLib.Variant('s', self.book.get_color())
+            _color = self.book.get_color()
+            variant = GLib.Variant('s', _color)
             self.color_action.set_state(variant)
         except Exception as e:
             raise ValueError(e)
             #TODO: Use an application notification.
+            self.change_color(_color)
+
+    def on_change_color(self, action, value):
+        action.set_state(value)
+
+        _color = value.get_string()
+        self.change_color(_color)
+        self.book.set_color(_color)
+
+    def change_color(self, _color):
+        win_dark = self.gtk_settings.get_property('gtk-application-prefer-dark-theme')
+        if _color == 'dark' and not win_dark:
+            self.gtk_settings.set_property('gtk-application-prefer-dark-theme', True)
+        elif _color in ('light', 'sepia') and win_dark:
+            self.gtk_settings.set_property('gtk-application-prefer-dark-theme', False)
 
     def change_fontsize(self, fontsize):
         self.book.set_fontsize(fontsize)
@@ -95,10 +113,6 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         self.lineheight_less.set_sensitive(lineheight > 1.0)
         self.lineheight_more.set_sensitive(lineheight < 2.8)
         self.lineheight_label.set_label('{0}pt'.format(self.book.get_lineheight()))
-
-    def on_change_color(self, action, value):
-        action.set_state(value)
-        self.book.set_color(value.get_string())
 
     @GtkTemplate.Callback
     def on_font_set(self, widget):
