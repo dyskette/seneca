@@ -34,6 +34,15 @@ class Settings:
                         'lineheight' : '1.6',
                         'paginate' : 'yes' }
 
+        self.color_light = {'foreground': '#333333',
+                            'background': '#ffffff'}
+
+        self.color_sepia = {'foreground': '#5b4636',
+                            'background': '#f4ecd8'}
+
+        self.color_dark = {'foreground': '#eeeeee',
+                           'background': '#232729'}
+
         self.load()
 
     def load(self):
@@ -45,6 +54,9 @@ class Settings:
                 os.makedirs(_dir)
 
             self.conf['Settings'] = self.default
+            self.conf['light'] = self.color_light
+            self.conf['sepia'] = self.color_sepia
+            self.conf['dark'] = self.color_dark
             self.save()
 
     def save(self):
@@ -66,6 +78,22 @@ class Settings:
     @color.setter
     def color(self, value):
         self.conf['Settings']['color'] = value
+
+    @property
+    def color_fg(self):
+        return self.conf[self.color]['foreground']
+
+    @color_fg.setter
+    def color_fg(self, value):
+        self.conf[self.color]['foreground'] = value
+
+    @property
+    def color_bg(self):
+        return self.conf[self.color]['background']
+
+    @color_bg.setter
+    def color_bg(self, value):
+        self.conf[self.color]['background'] = value
 
     @property
     def fontfamily(self):

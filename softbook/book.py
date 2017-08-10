@@ -21,9 +21,10 @@ import logging
 logging.basicConfig(level=logging.WARNING)
 
 import gi
+gi.require_version('Gdk', '3.0')
 gi.require_version('WebKit2', '4.0')
 gi.require_version('Gepub', '0.5')
-from gi.repository import Gio, WebKit2, Gepub
+from gi.repository import Gdk, Gio, WebKit2, Gepub
 
 class Book(WebKit2.WebView):
 
@@ -40,6 +41,10 @@ class Book(WebKit2.WebView):
 
         # User settings
         self.__set = Settings()
+
+        logging.info('Setting background to {0}'.format(self.__set.color_bg))
+        _gdk_rgba = Gdk.RGBA.from_color(Gdk.Color.parse(self.__set.color_bg)[1])
+        self.set_background_color(_gdk_rgba)
 
         context = self.get_context()
         context.register_uri_scheme('epub', self.on_epub_scheme)
@@ -310,7 +315,12 @@ class Book(WebKit2.WebView):
         return self.__set.color
 
     def set_color(self, c):
+        if self.__set.color == c:
+            return
+
         self.__set.color = c
+        _gdk_rgba = Gdk.RGBA.from_color(Gdk.Color.parse(self.__set.color_bg)[1])
+        self.set_background_color(_gdk_rgba)
         self.__set.save()
         self.setup_view()
 
