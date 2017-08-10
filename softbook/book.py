@@ -38,6 +38,7 @@ class Book(WebKit2.WebView):
         self.__scroll_width = 0
         self.__chapter_pos = 0
         self.__is_page_prev = False
+        self.__chapters = []
 
         # User settings
         self.__set = Settings()
@@ -82,6 +83,11 @@ class Book(WebKit2.WebView):
         self.__doc = gepubdoc
 
         if self.__doc:
+            for i in range(self.__doc.get_n_pages()):
+                self.__chapters.append(self.__doc.get_current_path())
+                self.__doc.go_next()
+            self.__doc.set_page(0)
+
             self.reload_current_chapter()
             # See: GObject.Object.signals.notify
             self.__doc.connect('notify::page', self.reload_current_chapter)
@@ -103,9 +109,9 @@ class Book(WebKit2.WebView):
         self.load_bytes(_bytes, _mime, _encoding, _base_uri)
 
     def on_epub_scheme(self, request):
-        """ Callback function. Everytime something is requested, like a css or
-        image path. It uses the WebKit2.URISchemeRequest to find out the path
-        requested and get it from the Gepub.Doc object.
+        """ Callback function. Everytime something is requested. It uses the
+        WebKit2.URISchemeRequest to find out the path requested and get it from
+        the Gepub.Doc object.
 
         Finish a WebKit2.URISchemeRequest by setting the contents of the request
         and its mime type.
@@ -118,6 +124,29 @@ class Book(WebKit2.WebView):
 
         _uri = request.get_uri()
         _path = _uri[8:]
+
+        if _path == self.__doc.get_current_path():
+            return
+
+        # Maybe is epub:///link/file#id
+        _hash = _path.find('#')
+        if _hash != -1:
+            _id = _path[_hash:]
+            _path = _path[:_hash]
+
+            if _path == self.__doc.get_current_path():
+                logging.info('Scrolling in same chapter to... {0}'.format(_id))
+                js_string = 'window.location = \'{0}\';'.format(_id)
+                self.run_javascript(js_string)
+                return
+
+        for i in range(len(self.__chapters)):
+            if _path in self.__chapters[i]:
+                self.__doc.set_page(i)
+                if _hash != -1:
+                    self.connect('load-changed', self.on_scroll_to_id, _id)
+                return
+
         _bytes = self.__doc.get_resource(_path)
 
         stream = Gio.MemoryInputStream.new_from_bytes(_bytes)
@@ -222,6 +251,15 @@ class Book(WebKit2.WebView):
         if self.__chapter_pos:
             self.adjust_chapter_pos()
 
+    def get_id_position_from_title(self, webview, result, user_data):
+        try:
+            js_result = self.run_javascript_finish(result)
+        except Exception as e:
+            logging.error('Error getting id position: {0}'.format(e))
+
+        self.__chapter_pos = int(self.get_property('title'))
+        logging.info('Id position: {0}'.format(self.__chapter_pos))
+        self.adjust_chapter_pos()
 
     def adjust_chapter_pos(self):
         """ Position adjustment function.
@@ -248,9 +286,17 @@ class Book(WebKit2.WebView):
         self.scroll_to_position()
 
     def scroll_to_position(self):
-        logging.info('Scrolling to... {0}'.format(self.__chapter_pos))
+        logging.info('Scrolling to... {0}'.format(self.get_position()))
         js_string = 'document.querySelector(\'body\').scrollTo({0}, 0)'.format(self.__chapter_pos)
         self.run_javascript(js_string)
+
+    def on_scroll_to_id(self, webview, load_event, _id):
+        # TODO: Test scrolling when paginated is True
+        if load_event is WebKit2.LoadEvent.FINISHED:
+            logging.info('Scrolling in new chapter to... {0}'.format(_id))
+            js_string = 'window.location = \'{0}\';'.format(_id)
+            self.run_javascript(js_string)
+        self.disconnect_by_func(self.on_scroll_to_id)
 
     def get_paginate(self):
         return self.__set.paginate
