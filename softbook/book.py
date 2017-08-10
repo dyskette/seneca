@@ -160,11 +160,11 @@ class Book(WebKit2.WebView):
 
     def on_load_change(self, webview, load_event):
         if load_event is WebKit2.LoadEvent.FINISHED:
-            logging.info('Load finished: Running javascript')
+            logging.info('Load event finished')
             self.setup_view()
 
     def on_size_change(self, webview, gdk_rectangle):
-        logging.info('Size changed: Running javascript')
+        logging.info('Size changed')
         self.recalculate_content()
 
     def setup_view(self):
@@ -331,6 +331,7 @@ class Book(WebKit2.WebView):
         When the view is paginated, adjust chapter position given an arbitrary
         number, i.e. go to the next page if the position given is closer to it.
         """
+        logging.info('Adjusting position value')
         _page = self.__chapter_pos // self.__view_width
         _next = _page + 1
 
