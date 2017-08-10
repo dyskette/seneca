@@ -66,6 +66,8 @@ class ApplicationWindow(Gtk.ApplicationWindow):
             # Add to view
             self.main_view.pack_start(self.book, True, True, 0)
             self.book.show_all()
+            self.header_bar.set_title(self.book.get_title())
+            self.header_bar.set_subtitle(self.book.get_author())
 
             # Make headerbar buttons available
             self.prev_btn.set_sensitive(True)

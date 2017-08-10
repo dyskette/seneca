@@ -345,3 +345,9 @@ class Book(WebKit2.WebView):
         self.__set.lineheight = l
         self.__set.save()
         self.setup_view()
+
+    def get_title(self):
+        return self.__doc.get_metadata('title')
+
+    def get_author(self):
+        return self.__doc.get_metadata('creator')
