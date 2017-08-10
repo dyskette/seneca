@@ -48,15 +48,15 @@ class Book(WebKit2.WebView):
         self.connect('load-changed', self.on_load_change)
         self.connect('size-allocate', self.on_size_change)
 
-        _path = _gfile.get_path()
-        if not _path:
-            raise ValueError('GFile has empty path')
-
         try:
+            _path = _gfile.get_path()
+            if not _path:
+                raise AttributeError('GFile has empty path')
             gepubdoc = Gepub.Doc.new(_path)
         except Exception as e:
-            raise ValueError('gepubdoc could not be assigned: {0}'.format(e))
-        self.set_doc(gepubdoc)
+            raise AttributeError(e)
+        else:
+            self.set_doc(gepubdoc)
 
     def get_doc(self):
         return self.__doc

@@ -63,6 +63,10 @@ class ApplicationWindow(Gtk.ApplicationWindow):
     def open_file(self, _gfile):
         try:
             self.book = Book(_gfile)
+        except Exception as e:
+            print('Book couldn\'t be opened: {}'.format(e))
+            #TODO: Use an application notification.
+        else:
             # Add to view
             self.main_view.pack_start(self.book, True, True, 0)
             self.book.show_all()
@@ -85,9 +89,6 @@ class ApplicationWindow(Gtk.ApplicationWindow):
             _color = self.book.get_color()
             variant = GLib.Variant('s', _color)
             self.color_action.set_state(variant)
-        except Exception as e:
-            raise ValueError(e)
-            #TODO: Use an application notification.
             self.change_color(_color)
 
     def on_change_color(self, action, value):
