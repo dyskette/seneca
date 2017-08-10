@@ -43,14 +43,16 @@ class Book(WebKit2.WebView):
         # User settings
         self.__set = Settings()
 
+        self.view_sett = self.get_settings()
+        self.view_sett.set_property('enable-smooth-scrolling', True)
+        self.view_sett.set_property('default-font-size', self.__set.fontsize)
+
         logging.info('Setting background to {0}'.format(self.__set.color_bg))
         _gdk_rgba = Gdk.RGBA.from_color(Gdk.Color.parse(self.__set.color_bg)[1])
         self.set_background_color(_gdk_rgba)
 
         context = self.get_context()
         context.register_uri_scheme('epub', self.on_epub_scheme)
-        settings = self.get_settings()
-        settings.set_property('enable-smooth-scrolling', True)
         self.connect('load-changed', self.on_load_change)
         self.connect('size-allocate', self.on_size_change)
 
@@ -383,6 +385,7 @@ class Book(WebKit2.WebView):
         self.__set.fontstyle = f[2]
         self.__set.fontstretch = f[3]
         self.__set.fontsize = f[4]
+        self.view_sett.set_property('default-font-size', f[4])
         self.__set.save()
         self.setup_view()
 
@@ -391,6 +394,7 @@ class Book(WebKit2.WebView):
 
     def set_fontsize(self, f):
         self.__set.fontsize = f
+        self.view_sett.set_property('default-font-size', f)
         self.__set.save()
         self.setup_view()
 
