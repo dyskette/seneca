@@ -165,70 +165,132 @@ class Book(WebKit2.WebView):
 
     def on_size_change(self, webview, gdk_rectangle):
         logging.info('Size changed: Running javascript')
-        self.setup_view()
+        self.recalculate_content()
 
     def setup_view(self):
-        """ Sets up the WebView and all variables for pagination if it's active.
-        This function is called at every size, page or settings change.
+        """ Sets up the WebView content. It adds styles to the body itself and
+        to a child element of body.
 
-        - Obtains the width of the view.
-        - Adds a child to <body> with margin (left and right) style when necessary
-        - Adds font and lineheight styles to child of <body> when necessary
-        - If pagination is active:
-            - Set column and overflow styles, also margin (top and bottom)
-            - Setup position if we are coming from a page_prev call
-            - If position is non zero, we call position adjustment function
-
+        This function is called at every page switch or settings change.
         """
+        body_js = '''
+        document.body.style.backgroundColor = '{bg}';
+        document.body.style.color = '{fg}';
+        document.body.style.margin = '0px';
+        '''
+
+        wrapper_js = '''
+        if (!document.getElementById('bookBodyInnerWrapper'))
+            document.body.innerHTML = '<div id="bookBodyInnerWrapper">' + document.body.innerHTML + '</div>';
+
+        var wrapper = document.getElementById('bookBodyInnerWrapper');
+
+        wrapper.style.backgroundColor = '{bg}';
+        wrapper.style.color = '{fg}';
+        wrapper.style.margin = '0px {mg}px 0px {mg}px';
+        wrapper.style.fontFamily = '{fs0}';
+        wrapper.style.fontWeight = '{fs1}';
+        wrapper.style.fontStyle = '{fs2}';
+        wrapper.style.fontStretch = '{fs3}';
+        wrapper.style.fontSize = '{fs4}px';
+        wrapper.style.lineHeight = '{lh}';
+        '''.format(mg=self.__set.margin,
+                   bg=self.__set.color_bg,
+                   fg=self.__set.color_fg,
+                   fs0=self.__set.fontfamily,
+                   fs1=self.__set.fontweight,
+                   fs2=self.__set.fontstyle,
+                   fs3=self.__set.fontstretch,
+                   fs4=self.__set.fontsize,
+                   lh=self.__set.lineheight)
+
+        column_js_inner = '''
+        function resizeColumn() {
+            document.body.style.columnWidth = window.innerWidth + 'px';
+            document.body.style.height = (window.innerHeight - 40) +'px';
+        }
+        resizeColumn();
+        window.addEventListener('resize', resizeColumn);
+        '''
+
+        column_js = '''
+        if (!document.getElementById('columnJS')) {{
+            var child_script = document.createElement('script');
+            child_script.type = 'text/javascript';
+            child_script.id = 'columnJS'
+            child_script.innerHTML = `{0}`;
+            document.body.appendChild(child_script);
+        }}
+        document.body.style.overflow = 'hidden';
+        document.body.style.margin = '20px 0px 20px 0px';
+        document.body.style.columnGap = '0px';
+        '''.format(column_js_inner)
+
+        img_js_inner = '''
+        function resizeImages() {
+            var avail_width = window.innerWidth - 40;
+            var avail_height = window.innerHeight - 40;
+
+            var img = document.getElementsByTagName('img');
+            var len = img.length;
+
+            for (var i = 0; i < len; i++) {
+                var image_width  = img[i].naturalWidth;
+                var image_height = img[i].naturalHeight;
+                var image_ratio = image_width / image_height;
+                var avail_ratio = avail_width / avail_height;
+                var width;
+                var height;
+
+                if (image_width >= avail_width || image_height >= avail_height) {
+                    if (avail_ratio > image_ratio) {
+                        width = Math.floor(image_width * avail_height / image_height);
+                        height = avail_height;
+                    } else {
+                        width = avail_width;
+                        height = Math.floor(image_height * avail_width / image_width);
+                    }
+                } else {
+                    width = image_width;
+                    height = image_height;
+                }
+
+                console.log('Image ' + i + ': ' + width + ' x ' + height);
+                img[i].style.width = width + 'px';
+                img[i].style.height = height + 'px';
+            }
+        }
+
+        resizeImages();
+        window.addEventListener('resize', resizeImages);
+        '''
+
+        img_js = '''
+        if (!document.getElementById('imgJS')) {{
+            var child_script = document.createElement('script');
+            child_script.type = 'text/javascript';
+            child_script.id = 'imgJS'
+            child_script.innerHTML = `{0}`;
+            document.body.appendChild(child_script);
+        }}
+        '''.format(img_js_inner)
+
+        logging.info('Running body and wrapper javascript...')
+        self.run_javascript(body_js)
+        self.run_javascript(wrapper_js)
+        if self.__set.paginate:
+            logging.info('Running pagination javascript...')
+            self.run_javascript(column_js)
+            # FIXME: This break some books, I was trying to imitate calibre viewer.
+            #self.run_javascript(img_js)
+
+        self.recalculate_content()
+
+    def recalculate_content(self):
         self.__view_width = self.get_allocation().width
         logging.info('View width: {0}'.format(self.__view_width))
 
-        js_string = '''
-        if (!document.querySelector('#bookywrapper'))
-            document.body.innerHTML = '<div id="bookywrapper">' + document.body.innerHTML + '</div>';
-
-        document.querySelector('#bookywrapper').style.marginLeft = '{margin}px';
-        document.querySelector('#bookywrapper').style.marginRight = '{margin}px';
-        '''.format(margin=self.__set.margin)
-        self.run_javascript(js_string)
-
-        if self.__set.fontfamily:
-            js_string = 'document.querySelector(\'#bookywrapper\').style.fontFamily = \'{0}\';'.format(
-                        self.__set.fontfamily)
-            self.run_javascript(js_string)
-        if self.__set.fontweight:
-            js_string = 'document.querySelector(\'#bookywrapper\').style.fontWeight = \'{0}\';'.format(
-                        self.__set.fontweight)
-            self.run_javascript(js_string)
-        if self.__set.fontstyle:
-            js_string = 'document.querySelector(\'#bookywrapper\').style.fontStyle = \'{0}\';'.format(
-                        self.__set.fontstyle)
-            self.run_javascript(js_string)
-        if self.__set.fontstretch:
-            js_string = 'document.querySelector(\'#bookywrapper\').style.fontStretch = \'{0}\';'.format(
-                        self.__set.fontstretch)
-            self.run_javascript(js_string)
-        if self.__set.fontsize:
-            js_string = 'document.querySelector(\'#bookywrapper\').style.fontSize = \'{0}px\';'.format(
-                        self.__set.fontsize)
-            self.run_javascript(js_string)
-        if self.__set.lineheight:
-            js_string = 'document.querySelector(\'#bookywrapper\').style.lineHeight = \'{0}\';'.format(
-                        self.__set.lineheight)
-            self.run_javascript(js_string)
-
         if self.__set.paginate:
-            # Pagination: We create one column and hide the overflow.
-            js_string = '''
-            document.body.style.overflow = 'hidden';
-            document.body.style.margin = '20px 0px 20px 0px';
-            document.body.style.padding = '0px';
-            document.body.style.columnWidth = window.innerWidth+'px';
-            document.body.style.height = (window.innerHeight - 40) +'px';
-            document.body.style.columnGap = '0px';
-            '''
-            self.run_javascript(js_string)
-
             js_string = 'document.title = document.body.scrollWidth;'
             self.run_javascript(js_string, None, self.get_width_from_title, None)
 
