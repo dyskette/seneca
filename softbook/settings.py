@@ -1,6 +1,6 @@
 # settings.py
 #
-# Copyright (C) 2017 Dylan Smith
+# Copyright (C) 2017 Eddy Castillo
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
