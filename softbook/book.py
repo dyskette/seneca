@@ -173,7 +173,8 @@ class Book(WebKit2.WebView):
         document.body.style.backgroundColor = '{bg}';
         document.body.style.color = '{fg}';
         document.body.style.margin = '0px';
-        '''
+        '''.format(bg=self.__settings.color_bg,
+                   fg=self.__settings.color_fg)
 
         wrapper_js = '''
         if (!document.getElementById('bookBodyInnerWrapper'))
