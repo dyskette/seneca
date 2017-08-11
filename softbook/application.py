@@ -22,7 +22,6 @@ from gi.repository import Gtk, Gio, GLib
 
 from .window import ApplicationWindow
 from .dialogs import AboutDialog, InfoDialog
-from .book import Book
 
 class Application(Gtk.Application):
 
@@ -51,10 +50,11 @@ class Application(Gtk.Application):
     def do_activate(self):
         if not self.window:
             self.window = ApplicationWindow(application=self)
-
         self.window.present()
 
     def do_shutdown(self):
+        if self.window:
+            self.window.settings.save()
         Gtk.Application.do_shutdown(self)
 
     def do_open(self, files, n_files, hint):
@@ -62,7 +62,6 @@ class Application(Gtk.Application):
         print('But we open just one file.')
         if not self.window:
             self.window = ApplicationWindow(application=self)
-
         self.window.open_file(files[0])
         # And continue...
         self.activate()

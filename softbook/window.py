@@ -17,7 +17,8 @@
 
 from .gi_composites import GtkTemplate
 from .book import Book
-from .font import pangoFont, cssFont
+from .font import pangoFontDesc, cssFont
+from .settings import Settings
 
 import gi
 gi.require_version('Gtk', '3.0')
@@ -46,30 +47,36 @@ class ApplicationWindow(Gtk.ApplicationWindow):
     def __init__(self, application):
         Gtk.ApplicationWindow.__init__(self, application=application)
         self.init_template()
-        self.book = None
-
+        self.settings = Settings()
+        self.book = Book(self.settings)
         self.gtk_settings = Gtk.Settings.get_default()
 
-        variant = GLib.Variant('s', 'light')
-        self.color_action = Gio.SimpleAction.new_stateful('color', variant.get_type(), variant)
-        self.color_action.connect('change-state', self.on_change_color)
-        self.add_action(self.color_action)
+        variant = GLib.Variant('s', self.settings.color)
+        color_action = Gio.SimpleAction.new_stateful('color', variant.get_type(), variant)
+        color_action.connect('change-state', self.change_color)
+        self.add_action(color_action)
+
+        # Sync UI with settings
+        self.change_window_color(self.settings.color)
+        self.refresh_font_button()
+        self.refresh_fontsize_label()
+        self.refresh_lineheight_label()
 
         # Initialize with headerbar buttons disabled
         self.prev_btn.set_sensitive(False)
         self.next_btn.set_sensitive(False)
-        self.open_menu.set_sensitive(False)
+        # self.open_menu.set_sensitive(False)
+
+        self.main_view.pack_start(self.book, True, True, 0)
+        self.main_view.show_all()
 
     def open_file(self, _gfile):
         try:
-            self.book = Book(_gfile)
+            self.book.set_doc(_gfile)
         except Exception as e:
             print('Book couldn\'t be opened: {}'.format(e))
             #TODO: Use an application notification.
         else:
-            # Add to view
-            self.main_view.pack_start(self.book, True, True, 0)
-            self.book.show_all()
             self.header_bar.set_title(self.book.get_title())
             self.header_bar.set_subtitle(self.book.get_author())
 
@@ -78,55 +85,79 @@ class ApplicationWindow(Gtk.ApplicationWindow):
             self.next_btn.set_sensitive(True)
             self.open_menu.set_sensitive(True)
 
-            # Sync buttons with settings
-            _font = self.book.get_font()
-            pango_font = pangoFont(_font[0], _font[1], _font[2], _font[3], _font[4])
-            self.font_btn.set_font_desc(pango_font.desc)
+    def change_window_color(self, color):
+        dark = self.gtk_settings.get_property('gtk-application-prefer-dark-theme')
 
-            self.font_label.set_label('{0}px'.format(self.book.get_fontsize()))
-            self.lineheight_label.set_label('{0}pt'.format(self.book.get_lineheight()))
-
-            _color = self.book.get_color()
-            variant = GLib.Variant('s', _color)
-            self.color_action.set_state(variant)
-            self.change_color(_color)
-
-    def on_change_color(self, action, value):
-        action.set_state(value)
-
-        _color = value.get_string()
-        self.change_color(_color)
-        self.book.set_color(_color)
-
-    def change_color(self, _color):
-        win_dark = self.gtk_settings.get_property('gtk-application-prefer-dark-theme')
-        if _color == 'dark' and not win_dark:
+        if color == 'dark' and not dark:
             self.gtk_settings.set_property('gtk-application-prefer-dark-theme', True)
-        elif _color in ('light', 'sepia') and win_dark:
+        elif color in ('light', 'sepia') and dark:
             self.gtk_settings.set_property('gtk-application-prefer-dark-theme', False)
 
-    def change_fontsize(self, fontsize):
-        self.book.set_fontsize(fontsize)
+    def refresh_font_button(self):
+        pango_font_desc = pangoFontDesc(self.settings.fontfamily,
+                                        self.settings.fontweight,
+                                        self.settings.fontstyle,
+                                        self.settings.fontstretch,
+                                        self.settings.fontsize)
+        self.font_btn.set_font_desc(pango_font_desc)
+
+    def refresh_fontsize_label(self):
+        fontsize = self.settings.fontsize
+
         self.font_less.set_sensitive(fontsize > 8)
         self.font_more.set_sensitive(fontsize < 32)
-        self.font_label.set_label('{0}px'.format(self.book.get_fontsize()))
 
-    def change_lineheight(self, lineheight):
-        self.book.set_lineheight(float(format(lineheight, '1.2f')))
+        fs_label = '{0}px'.format(fontsize)
+        self.font_label.set_label(fs_label)
+
+    def refresh_lineheight_label(self):
+        lineheight = self.settings.lineheight
+
         self.lineheight_less.set_sensitive(lineheight > 1.0)
         self.lineheight_more.set_sensitive(lineheight < 2.8)
-        self.lineheight_label.set_label('{0}pt'.format(self.book.get_lineheight()))
+
+        lh_label = '{0}pt'.format(lineheight)
+        self.lineheight_label.set_label(lh_label)
+
+    def change_color(self, action, value):
+        color = value.get_string()
+
+        self.change_window_color(color)
+
+        self.settings.color = color
+        self.book.set_settings(self.settings)
+
+        action.set_state(value)
+
+    def change_fontsize(self, fontsize):
+        self.settings.fontsize = fontsize
+        self.book.set_settings(self.settings)
+
+        self.refresh_fontsize_label()
+        self.refresh_font_button()
+
+    def change_lineheight(self, lineheight):
+        lineheight = float(format(lineheight, '1.2f'))
+
+        self.settings.lineheight = lineheight
+        self.book.set_settings(self.settings)
+
+        self.refresh_lineheight_label()
 
     @GtkTemplate.Callback
     def on_font_set(self, widget):
-        pango_fontdesc = widget.get_property('font-desc')
-        css_font = cssFont(pango_fontdesc)
+        pango_font_desc = widget.get_property('font-desc')
+        css_font = cssFont(pango_font_desc)
 
-        self.book.set_font([css_font.family,
-                            css_font.weight,
-                            css_font.style,
-                            css_font.stretch,
-                            css_font.size])
+        self.settings.fontfamily = css_font['family']
+        self.settings.fontweight = css_font['weight']
+        self.settings.fontstyle = css_font['style']
+        self.settings.fontstretch = css_font['stretch']
+        self.settings.fontsize = css_font['size']
+
+        self.book.set_settings(self.settings)
+
+        self.refresh_fontsize_label()
 
     @GtkTemplate.Callback
     def on_prev_btn(self, widget):
@@ -138,24 +169,26 @@ class ApplicationWindow(Gtk.ApplicationWindow):
 
     @GtkTemplate.Callback
     def on_font_less(self, widget):
-        self.change_fontsize(self.book.get_fontsize() - 1)
+        self.change_fontsize(self.settings.fontsize - 1)
 
     @GtkTemplate.Callback
     def on_font_default(self, widget):
-        self.change_fontsize(20)
+        fs_default = int(self.settings.default['fontsize'])
+        self.change_fontsize(fs_default)
 
     @GtkTemplate.Callback
     def on_font_more(self, widget):
-        self.change_fontsize(self.book.get_fontsize() + 1)
+        self.change_fontsize(self.settings.fontsize + 1)
 
     @GtkTemplate.Callback
     def on_lineheight_less(self, widget):
-        self.change_lineheight(self.book.get_lineheight() - 0.2)
+        self.change_lineheight(self.settings.lineheight - 0.2)
 
     @GtkTemplate.Callback
     def on_lineheight_default(self, widget):
-        self.change_lineheight(1.6)
+        lh_default = float(self.settings.default['lineheight'])
+        self.change_lineheight(lh_default)
 
     @GtkTemplate.Callback
     def on_lineheight_more(self, widget):
-        self.change_lineheight(self.book.get_lineheight() + 0.2)
+        self.change_lineheight(self.settings.lineheight + 0.2)

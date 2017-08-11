@@ -15,8 +15,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from .settings import Settings
-
 import logging
 logging.basicConfig(level=logging.WARNING)
 
@@ -28,63 +26,56 @@ from gi.repository import Gdk, Gio, WebKit2, Gepub
 
 class Book(WebKit2.WebView):
 
-    def __init__(self, _gfile):
+    def __init__(self, _settings):
         WebKit2.WebView.__init__(self)
 
         self.__doc = None
-
-        # Used internally
         self.__view_width = 0
         self.__scroll_width = 0
         self.__chapter_pos = 0
         self.__is_page_prev = False
         self.__chapters = []
+        self.__settings = _settings
 
-        # User settings
-        self.__set = Settings()
+        self.__wk_settings = self.get_settings()
+        self.__wk_context = self.get_context()
 
-        self.view_sett = self.get_settings()
-        self.view_sett.set_property('enable-smooth-scrolling', True)
-        self.view_sett.set_property('default-font-size', self.__set.fontsize)
-
-        logging.info('Setting background to {0}'.format(self.__set.color_bg))
-        _gdk_rgba = Gdk.RGBA.from_color(Gdk.Color.parse(self.__set.color_bg)[1])
+        _gdk_color = Gdk.Color.parse(self.__settings.color_bg)
+        _gdk_rgba = Gdk.RGBA.from_color(_gdk_color[1])
         self.set_background_color(_gdk_rgba)
+        self.__wk_settings.set_property('default-font-size', self.__settings.fontsize)
 
-        context = self.get_context()
-        context.register_uri_scheme('epub', self.on_epub_scheme)
+        self.__wk_context.register_uri_scheme('epub', self.on_epub_scheme)
         self.connect('load-changed', self.on_load_change)
         self.connect('size-allocate', self.on_size_change)
-
-        try:
-            _path = _gfile.get_path()
-            if not _path:
-                raise AttributeError('GFile has empty path')
-            gepubdoc = Gepub.Doc.new(_path)
-        except Exception as e:
-            raise AttributeError(e)
-        else:
-            self.set_doc(gepubdoc)
 
     def get_doc(self):
         return self.__doc
 
-    def set_doc(self, gepubdoc):
-        """ Receives a Gepub.Doc object. Disconnects a reload signal if there was a
+    def set_doc(self, _gfile):
+        """ Receives a GFile object. Disconnects a reload signal if there was a
         previous object, and connects the new object signal.
 
         Parameters:
-            Gepub.Doc - An epub document object.
+            GFile
         """
-        if self.__doc == gepubdoc:
-            return
+        try:
+            _path = _gfile.get_path()
+            if not _path:
+                raise AttributeError('GFile has empty path')
 
-        if self.__doc is not None:
-            self.__doc.disconnect_by_func(self.reload_current_chapter)
+            _gepubdoc = Gepub.Doc.new(_path)
+        except Exception as e:
+            raise AttributeError(e)
+        else:
+            if self.__doc == _gepubdoc:
+                return
 
-        self.__doc = gepubdoc
+            if self.__doc is not None:
+                self.__doc.disconnect_by_func(self.reload_current_chapter)
 
-        if self.__doc:
+            self.__doc = _gepubdoc
+
             for i in range(self.__doc.get_n_pages()):
                 self.__chapters.append(self.__doc.get_current_path())
                 self.__doc.go_next()
@@ -173,6 +164,11 @@ class Book(WebKit2.WebView):
 
         This function is called at every page switch or settings change.
         """
+        _gdk_color = Gdk.Color.parse(self.__settings.color_bg)
+        _gdk_rgba = Gdk.RGBA.from_color(_gdk_color[1])
+        self.set_background_color(_gdk_rgba)
+        self.__wk_settings.set_property('default-font-size', self.__settings.fontsize)
+
         body_js = '''
         document.body.style.backgroundColor = '{bg}';
         document.body.style.color = '{fg}';
@@ -194,15 +190,15 @@ class Book(WebKit2.WebView):
         wrapper.style.fontStretch = '{fs3}';
         wrapper.style.fontSize = '{fs4}px';
         wrapper.style.lineHeight = '{lh}';
-        '''.format(mg=self.__set.margin,
-                   bg=self.__set.color_bg,
-                   fg=self.__set.color_fg,
-                   fs0=self.__set.fontfamily,
-                   fs1=self.__set.fontweight,
-                   fs2=self.__set.fontstyle,
-                   fs3=self.__set.fontstretch,
-                   fs4=self.__set.fontsize,
-                   lh=self.__set.lineheight)
+        '''.format(mg=self.__settings.margin,
+                   bg=self.__settings.color_bg,
+                   fg=self.__settings.color_fg,
+                   fs0=self.__settings.fontfamily,
+                   fs1=self.__settings.fontweight,
+                   fs2=self.__settings.fontstyle,
+                   fs3=self.__settings.fontstretch,
+                   fs4=self.__settings.fontsize,
+                   lh=self.__settings.lineheight)
 
         column_js_inner = '''
         function resizeColumn() {
@@ -278,7 +274,7 @@ class Book(WebKit2.WebView):
         logging.info('Running body and wrapper javascript...')
         self.run_javascript(body_js)
         self.run_javascript(wrapper_js)
-        if self.__set.paginate:
+        if self.__settings.paginate:
             logging.info('Running pagination javascript...')
             self.run_javascript(column_js)
             # FIXME: This break some books, I was trying to imitate calibre viewer.
@@ -290,7 +286,7 @@ class Book(WebKit2.WebView):
         self.__view_width = self.get_allocation().width
         logging.info('View width: {0}'.format(self.__view_width))
 
-        if self.__set.paginate:
+        if self.__settings.paginate:
             js_string = 'document.title = document.body.scrollWidth;'
             self.run_javascript(js_string, None, self.get_width_from_title, None)
 
@@ -298,7 +294,7 @@ class Book(WebKit2.WebView):
         try:
             js_result = self.run_javascript_finish(result)
         except Exception as e:
-            raise ValueError('Error getting the scroll width: {0}'.format(e))
+            logging.error('Error getting scroll width: {0}'.format(e))
 
         self.__scroll_width = int(self.get_property('title'))
         logging.info('Scroll width: {0}'.format(self.__scroll_width))
@@ -364,11 +360,10 @@ class Book(WebKit2.WebView):
         self.disconnect_by_func(self.on_scroll_to_id)
 
     def get_paginate(self):
-        return self.__set.paginate
+        return self.__settings.paginate
 
     def set_paginate(self, b):
-        self.__set.paginate = b
-        self.__set.save()
+        self.__settings.paginate = b
         self.reload_current_chapter()
 
     def page_next(self):
@@ -414,59 +409,8 @@ class Book(WebKit2.WebView):
     def chapter_prev(self):
         self.__doc.go_prev()
 
-    def get_margin(self):
-        return self.__set.margin
-
-    def set_margin(self, m):
-        self.__set.margin = m
-        self.__set.save()
-        self.setup_view()
-
-    def get_color(self):
-        return self.__set.color
-
-    def set_color(self, c):
-        if self.__set.color == c:
-            return
-
-        self.__set.color = c
-        _gdk_rgba = Gdk.RGBA.from_color(Gdk.Color.parse(self.__set.color_bg)[1])
-        self.set_background_color(_gdk_rgba)
-        self.__set.save()
-        self.setup_view()
-
-    def get_font(self):
-        return [self.__set.fontfamily,
-                self.__set.fontweight,
-                self.__set.fontstyle,
-                self.__set.fontstretch,
-                self.__set.fontsize]
-
-    def set_font(self, f):
-        self.__set.fontfamily = f[0]
-        self.__set.fontweight = f[1]
-        self.__set.fontstyle = f[2]
-        self.__set.fontstretch = f[3]
-        self.__set.fontsize = f[4]
-        self.view_sett.set_property('default-font-size', f[4])
-        self.__set.save()
-        self.setup_view()
-
-    def get_fontsize(self):
-        return self.__set.fontsize
-
-    def set_fontsize(self, f):
-        self.__set.fontsize = f
-        self.view_sett.set_property('default-font-size', f)
-        self.__set.save()
-        self.setup_view()
-
-    def get_lineheight(self):
-        return self.__set.lineheight
-
-    def set_lineheight(self, l):
-        self.__set.lineheight = l
-        self.__set.save()
+    def set_settings(self, _settings):
+        self.__settings = _settings
         self.setup_view()
 
     def get_title(self):

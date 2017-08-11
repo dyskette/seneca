@@ -20,7 +20,7 @@ import configparser
 
 class Settings:
     def __init__(self):
-        app = 'softreader'
+        app = 'softbook'
         self.path = os.path.join(os.path.expanduser('~'), '.config', app, 'settings.ini')
         self.conf = configparser.ConfigParser()
 
