@@ -59,6 +59,20 @@ class Settings:
         with open(self.path, 'w') as configfile:
             self.conf.write(configfile)
 
+    def add_book(self, identifier):
+        self.conf[identifier] = {}
+        self.conf[identifier]['chapter'] = '0'
+        self.conf[identifier]['position'] = '0.0'
+
+    def set_position(self, identifier, chapter, position):
+        self.conf[identifier]['chapter'] = str(chapter)
+        self.conf[identifier]['position'] = str(position)
+
+    def get_position(self, identifier):
+        chapter = int(self.conf[identifier]['chapter'])
+        position = int(self.conf[identifier]['position'])
+        return [chapter, position]
+
     @property
     def margin(self):
         return int(self.conf['Settings']['margin'])

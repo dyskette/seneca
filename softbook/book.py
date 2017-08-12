@@ -30,6 +30,7 @@ class Book(WebKit2.WebView):
         WebKit2.WebView.__init__(self)
 
         self.__doc = None
+        self.__identifier = None
         self.__view_width = 0
         self.__scroll_width = 0
         self.__chapter_pos = 0
@@ -79,9 +80,22 @@ class Book(WebKit2.WebView):
             for i in range(self.__doc.get_n_pages()):
                 self.__chapters.append(self.__doc.get_current_path())
                 self.__doc.go_next()
-            self.__doc.set_page(0)
 
+            self.__identifier = self.__doc.get_metadata('identifier')
+            if not self.__identifier:
+                self.__identifier = self.get_author() + self.get_title()
+
+            _chap_and_pos = [0, 0.0]
+            try:
+                _chap_and_pos = self.__settings.get_position(self.__identifier)
+            except KeyError:
+                self.__settings.add_book(self.__identifier)
+
+            self.__doc.set_page(_chap_and_pos[0])
             self.reload_current_chapter()
+            if _chap_and_pos[1]:
+                self.__chapter_pos = _chap_and_pos[1]
+                self.setup_view()
             # See: GObject.Object.signals.notify
             self.__doc.connect('notify::page', self.reload_current_chapter)
 
@@ -90,7 +104,6 @@ class Book(WebKit2.WebView):
         connected to every page switch.
         """
         self.__scroll_width = 0
-        self.__view_width = 0
         self.__chapter_pos = 0
 
         _bytes = self.__doc.get_current_with_epub_uris()
@@ -100,6 +113,8 @@ class Book(WebKit2.WebView):
 
         logging.info('Reloading: epub:///{0}'.format(self.__doc.get_current_path()))
         self.load_bytes(_bytes, _mime, _encoding, _base_uri)
+
+        self.__settings.set_position(self.__identifier, self.get_chapter(), self.__chapter_pos)
 
     def on_epub_scheme(self, request):
         """ Callback function. Everytime something is requested. It uses the
@@ -348,9 +363,12 @@ class Book(WebKit2.WebView):
         self.scroll_to_position()
 
     def scroll_to_position(self):
-        logging.info('Scrolling to... {0}'.format(self.get_position()))
+        logging.info('Scrolling to... {0}'.format(self.__chapter_pos))
+
         js_string = 'document.querySelector(\'body\').scrollTo({0}, 0)'.format(self.__chapter_pos)
         self.run_javascript(js_string)
+
+        self.__settings.set_position(self.__identifier, self.get_chapter(), self.__chapter_pos)
 
     def on_scroll_to_id(self, webview, load_event, _id):
         # TODO: Test scrolling when paginated is True
