@@ -228,8 +228,15 @@ class Book(WebKit2.WebView):
 
         column_js_inner = '''
         function resizeColumn() {
-            document.body.style.columnWidth = window.innerWidth + 'px';
-            document.body.style.height = (window.innerHeight - 40) +'px';
+            if (window.innerWidth < 800) {
+                document.body.style.columnWidth = window.innerWidth + 'px';
+                document.body.style.height = (window.innerHeight - 40) + 'px';
+            }
+            else {
+                document.body.style.columnWidth = (window.innerWidth / 2) + 'px';
+                document.body.style.height = (window.innerHeight - 40) + 'px';
+                document.body.style.columnCount = '2';
+            }
         }
         resizeColumn();
         window.addEventListener('resize', resizeColumn);
