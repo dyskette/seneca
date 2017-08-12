@@ -54,8 +54,7 @@ class Book(WebKit2.WebView):
         return self.__doc
 
     def set_doc(self, _gfile):
-        """ Receives a GFile object. Disconnects a reload signal if there was a
-        previous object, and connects the new object signal.
+        """ Receives a GFile object and uses Gepub.Doc to parse it.
 
         Parameters:
             GFile
@@ -76,28 +75,34 @@ class Book(WebKit2.WebView):
                 self.__doc.disconnect_by_func(self.reload_current_chapter)
 
             self.__doc = _gepubdoc
+            self.prepare_book()
 
-            for i in range(self.__doc.get_n_pages()):
-                self.__chapters.append(self.__doc.get_current_path())
-                self.__doc.go_next()
+    def prepare_book(self):
+        """ Refreshing relevant variables for the book.
+        """
+        # List of pages
+        for i in range(self.__doc.get_n_pages()):
+            self.__chapters.append(self.__doc.get_current_path())
+            self.__doc.go_next()
 
-            self.__identifier = self.__doc.get_metadata('identifier')
-            if not self.__identifier:
-                self.__identifier = self.get_author() + self.get_title()
+        # Identifier
+        self.__identifier = self.__doc.get_metadata('identifier')
+        if not self.__identifier:
+            self.__identifier = self.get_author() + self.get_title()
 
-            _chap_and_pos = [0, 0.0]
-            try:
-                _chap_and_pos = self.__settings.get_position(self.__identifier)
-            except KeyError:
-                self.__settings.add_book(self.__identifier)
+        if not self.__settings.get_book(self.__identifier):
+            self.__settings.add_book(self.__identifier)
 
-            self.__doc.set_page(_chap_and_pos[0])
-            self.reload_current_chapter()
-            if _chap_and_pos[1]:
-                self.__chapter_pos = _chap_and_pos[1]
-                self.setup_view()
-            # See: GObject.Object.signals.notify
-            self.__doc.connect('notify::page', self.reload_current_chapter)
+        # Position
+        _chapter = self.__settings.get_chapter(self.__identifier)
+        _position = self.__settings.get_position(self.__identifier)
+
+        self.__doc.set_page(_chapter)
+        self.reload_current_chapter()
+        self.__chapter_pos = _position
+
+        # Signal: GObject.Object.signals.notify
+        self.__doc.connect('notify::page', self.reload_current_chapter)
 
     def reload_current_chapter(self, gepubdoc=None, event=None):
         """ Reload current Gepub.Doc chapter in WebView. This function is
@@ -112,9 +117,14 @@ class Book(WebKit2.WebView):
         _base_uri = None
 
         logging.info('Reloading: epub:///{0}'.format(self.__doc.get_current_path()))
-        self.load_bytes(_bytes, _mime, _encoding, _base_uri)
+        self.load_bytes(_bytes,
+                        _mime,
+                        _encoding,
+                        _base_uri)
 
-        self.__settings.set_position(self.__identifier, self.get_chapter(), self.__chapter_pos)
+        self.__settings.save_pos(self.__identifier,
+                                 self.get_chapter(),
+                                 self.__chapter_pos)
 
     def on_epub_scheme(self, request):
         """ Callback function. Everytime something is requested. It uses the
@@ -290,6 +300,7 @@ class Book(WebKit2.WebView):
         logging.info('Running body and wrapper javascript...')
         self.run_javascript(body_js)
         self.run_javascript(wrapper_js)
+
         if self.__settings.paginate:
             logging.info('Running pagination javascript...')
             self.run_javascript(column_js)
@@ -304,7 +315,10 @@ class Book(WebKit2.WebView):
 
         if self.__settings.paginate:
             js_string = 'document.title = document.body.scrollWidth;'
-            self.run_javascript(js_string, None, self.get_width_from_title, None)
+            self.run_javascript(js_string,
+                                None,
+                                self.get_width_from_title,
+                                None)
 
     def get_width_from_title(self, webview, result, user_data):
         try:
@@ -320,8 +334,10 @@ class Book(WebKit2.WebView):
         if self.__is_page_prev:
             logging.info('Page prev: Set chapter position accordingly')
             self.__chapter_pos = 100 * self.__scroll_width // 100
+
             if self.__chapter_pos > (self.__scroll_width - self.__view_width):
                 self.__chapter_pos = self.__scroll_width - self.__view_width
+
             self.__is_page_prev = False
 
         if self.__chapter_pos:
@@ -368,7 +384,9 @@ class Book(WebKit2.WebView):
         js_string = 'document.querySelector(\'body\').scrollTo({0}, 0)'.format(self.__chapter_pos)
         self.run_javascript(js_string)
 
-        self.__settings.set_position(self.__identifier, self.get_chapter(), self.__chapter_pos)
+        self.__settings.save_pos(self.__identifier,
+                                 self.get_chapter(),
+                                 self.__chapter_pos)
 
     def on_scroll_to_id(self, webview, load_event, _id):
         # TODO: Test scrolling when paginated is True
@@ -376,6 +394,7 @@ class Book(WebKit2.WebView):
             logging.info('Scrolling in new chapter to... {0}'.format(_id))
             js_string = 'window.location = \'{0}\';'.format(_id)
             self.run_javascript(js_string)
+
         self.disconnect_by_func(self.on_scroll_to_id)
 
     def get_paginate(self):
@@ -387,6 +406,7 @@ class Book(WebKit2.WebView):
 
     def page_next(self):
         self.__chapter_pos = self.__chapter_pos + self.__view_width
+
         if self.__chapter_pos > (self.__scroll_width - self.__view_width):
             self.__doc.go_next()
 
@@ -397,6 +417,7 @@ class Book(WebKit2.WebView):
             return
 
         self.__chapter_pos = self.__chapter_pos - self.__view_width
+
         if self.__chapter_pos < 0:
             self.__is_page_prev = True
             self.__doc.go_prev()
