@@ -32,7 +32,10 @@ class Settings:
                         'fontstretch' : 'normal',
                         'fontsize' : '20',
                         'lineheight' : '1.6',
-                        'paginate' : 'yes' }
+                        'paginate' : 'yes',
+                        'maximized' : 'no',
+                        'winheight' : '600',
+                        'winwidth' : '800'}
 
         self.colors = {}
         self.colors['light'] = {'foreground': '#333333',
@@ -163,7 +166,30 @@ class Settings:
 
     @paginate.setter
     def paginate(self, value):
-        if value:
-            self.conf['Settings']['paginate'] = 'yes'
-        else:
-            self.conf['Settings']['paginate'] = 'no'
+        value = 'yes' if value else 'no'
+        self.conf['Settings']['paginate'] = value
+
+    @property
+    def maximized(self):
+        return self.conf['Settings'].getboolean('paginate')
+
+    @maximized.setter
+    def maximized(self, value):
+        value = 'yes' if value else 'no'
+        self.conf['Settings']['maximized'] = value
+
+    @property
+    def height(self):
+        return int(self.conf['Settings']['height'])
+
+    @height.setter
+    def height(self, value):
+        self.conf['Settings']['height'] = str(value)
+
+    @property
+    def width(self):
+        return int(self.conf['Settings']['width'])
+
+    @width.setter
+    def width(self, value):
+        self.conf['Settings']['width'] = str(value)
