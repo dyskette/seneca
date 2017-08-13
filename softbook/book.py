@@ -414,10 +414,17 @@ class Book(WebKit2.WebView):
     def page_next(self):
         self.__chapter_pos = self.__chapter_pos + self.__view_width
 
-        if self.__chapter_pos > (self.__scroll_width - self.__view_width):
-            self.__doc.go_next()
+        _smaller_than_view =  (self.__scroll_width - self.__chapter_pos) < self.__view_width
 
-        self.scroll_to_position()
+        if _smaller_than_view and self.__view_width > 800:
+            _limit = self.__scroll_width - int(self.__view_width / 2)
+        else:
+            _limit = self.__scroll_width - self.__view_width
+
+        if self.__chapter_pos > _limit:
+            self.__doc.go_next()
+        else:
+            self.scroll_to_position()
 
     def page_prev(self):
         if self.__chapter_pos == 0 and self.get_chapter() == 0:
@@ -428,8 +435,8 @@ class Book(WebKit2.WebView):
         if self.__chapter_pos < 0:
             self.__is_page_prev = True
             self.__doc.go_prev()
-
-        self.scroll_to_position()
+        else:
+            self.scroll_to_position()
 
     def get_position(self):
         if not self.__chapter_pos:
