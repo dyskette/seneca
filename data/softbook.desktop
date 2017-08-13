@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Softbook
+Name[en]=EPUB Viewer
+Comment=Read documents in epub format
+Exec=softbook
+StartupNotify=True
+Terminal=False
+Type=Application
+Icon=softbook
+Categories=GTK;Viewer;
+MimeType=application/epub+zip;
