@@ -171,7 +171,7 @@ class Settings:
 
     @property
     def maximized(self):
-        return self.conf['Settings'].getboolean('paginate')
+        return self.conf['Settings'].getboolean('maximized')
 
     @maximized.setter
     def maximized(self, value):

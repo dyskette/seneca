@@ -58,6 +58,8 @@ class ApplicationWindow(Gtk.ApplicationWindow):
 
         # Sync UI with settings
         self.set_default_size(self.settings.width, self.settings.height)
+        if self.settings.maximized:
+            self.maximize()
         self.change_window_color(self.settings.color)
         self.refresh_font_button()
         self.refresh_fontsize_label()
@@ -197,8 +199,7 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         self.change_lineheight(self.settings.lineheight + 0.2)
 
     def on_size_allocate(self, window, gdk_rectangle):
-        if self.is_maximized():
-            self.settings.maximized = self.is_maximized()
-        else:
+        self.settings.maximized = self.is_maximized()
+        if not self.is_maximized():
             self.settings.width , self.settings.height = self.get_size()
 
