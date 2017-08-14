@@ -46,6 +46,7 @@ class Book(WebKit2.WebView):
         self.set_background_color(_gdk_rgba)
         self.__wk_settings.set_property('default-font-size', self.__settings.fontsize)
 
+        self.__wk_context.set_cache_model(WebKit2.CacheModel.DOCUMENT_VIEWER)
         self.__wk_context.register_uri_scheme('epub', self.on_epub_scheme)
         self.connect('load-changed', self.on_load_change)
         self.connect('size-allocate', self.on_size_change)
