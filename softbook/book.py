@@ -75,6 +75,7 @@ class Book(WebKit2.WebView):
             if self.__doc is not None:
                 self.__doc.disconnect_by_func(self.reload_current_chapter)
 
+            logging.info('Opening {0}'.format(_path))
             self.__doc = _gepubdoc
             self.prepare_book()
 
