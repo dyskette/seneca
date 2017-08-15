@@ -27,14 +27,14 @@ class Application(Gtk.Application):
 
     def __init__(self):
         Gtk.Application.__init__(self,
-                                 #application_id='com.github.dyskette.softbook',
+                                 #application_id='com.github.dyskette.seneca',
                                  flags=Gio.ApplicationFlags.HANDLES_OPEN)
 
-        GLib.set_application_name('Softbook')
-        GLib.set_prgname('softbook')
+        GLib.set_application_name('Seneca')
+        GLib.set_prgname('seneca')
 
         self.window = None
-        # self.settings = Gio.Settings.new('com.github.dyskette.softbook')
+        # self.settings = Gio.Settings.new('com.github.dyskette.seneca')
 
     def do_startup(self):
         Gtk.Application.do_startup(self)
@@ -69,9 +69,9 @@ class Application(Gtk.Application):
                     first = True
                 else:
                     # TODO: Spawn processes of this program with the file as argument
-                    cmd = 'softbook'
+                    cmd = 'seneca'
                     flags = Gio.AppInfoCreateFlags.SUPPORTS_STARTUP_NOTIFICATION
-                    appinfo = Gio.AppInfo.create_from_commandline(cmd, 'softbook', flags)
+                    appinfo = Gio.AppInfo.create_from_commandline(cmd, 'seneca', flags)
                     # launch = appinfo.launch([giofile], None)
                     # if not launch:
                     #     print('Something went wrong!')

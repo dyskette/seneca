@@ -1,11 +1,11 @@
 [Desktop Entry]
-Name=Softbook
-Name[en]=EPUB Viewer
+Name=Seneca
 Comment=Read documents in epub format
-Exec=softbook
+Exec=seneca
 StartupNotify=True
 Terminal=False
 Type=Application
-Icon=softbook
+Icon=seneca
 Categories=GTK;Viewer;
 MimeType=application/epub+zip;
+Name[es_MX]=seneca.desktop

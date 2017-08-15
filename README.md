@@ -1,6 +1,6 @@
-# Softbook
+# Seneca
 
-Softbook is a cute epub reader.
+Seneca is a cute epub reader.
 
 ## Installation
 

@@ -22,7 +22,7 @@ from gi.repository import Gtk
 class AboutDialog():
 
     def __init__(self, window):
-        resource = '/com/github/dyskette/softbook/ui/about.ui'
+        resource = '/com/github/dyskette/seneca/ui/about.ui'
         builder = Gtk.Builder.new_from_resource(resource)
 
         self.about = builder.get_object('about_dialog')

@@ -6,11 +6,11 @@
     <property name="can_focus">False</property>
     <property name="modal">True</property>
     <property name="type_hint">normal</property>
-    <property name="program_name">Softbook</property>
+    <property name="program_name">Seneca</property>
     <property name="version">0.0</property>
     <property name="copyright" translatable="yes">Copyright © 2017 Eddy Castillo</property>
-    <property name="website">https://github.com/dyskette/softbook</property>
-    <property name="website_label" translatable="yes">Visit Softbook's website</property>
+    <property name="website">https://github.com/dyskette/seneca</property>
+    <property name="website_label" translatable="yes">Visit Seneca's website</property>
     <property name="authors">Maintainers:
     Eddy Castillo &lt;dyskette@gmail.com&gt;
 
