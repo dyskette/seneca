@@ -50,6 +50,7 @@ class Settings:
     def load(self):
         if os.path.exists(self.path):
             self.conf.read(self.path)
+            self.check()
         else:
             _dir = os.path.split(self.path)[0]
             if not os.path.exists(_dir):
@@ -61,6 +62,16 @@ class Settings:
     def save(self):
         with open(self.path, 'w') as configfile:
             self.conf.write(configfile)
+
+    def check(self):
+        good = True
+        for key, value in self.default.items():
+            if key not in self.conf['Settings']:
+                self.conf['Settings'][key] = self.default[key]
+                good = False
+
+        if not good:
+            self.save()
 
     def get_book(self, identifier):
         return identifier in self.conf
