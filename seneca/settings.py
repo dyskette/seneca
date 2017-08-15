@@ -34,8 +34,8 @@ class Settings:
                         'lineheight' : '1.6',
                         'paginate' : 'yes',
                         'maximized' : 'no',
-                        'winheight' : '600',
-                        'winwidth' : '800'}
+                        'height' : '600',
+                        'width' : '800'}
 
         self.colors = {}
         self.colors['light'] = {'foreground': '#333333',
