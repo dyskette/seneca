@@ -16,27 +16,9 @@ def execute_this(cmd_list, path=None):
 
 def make_things():
     execute_this([resource_cmd, resource_file], resource_dir)
-    execute_this(['cp', 'data/seneca.gresource', 'seneca'])
-
-def main():
-    make_things()
-
-    import gi
-    from gi.repository import Gio
-
-    filename = 'data/seneca.gresource'
-    resource = Gio.Resource.load(filename)
-    Gio.Resource._register(resource)
-
-    from seneca import application
-    app = application.Application()
-
-    try:
-        ret = app.run(sys.argv)
-    except SystemExit as e:
-        ret = e.code
-
-    sys.exit(ret)
+    execute_this(['mv', 'data/seneca.gresource', 'seneca'])
 
 if __name__ == '__main__':
-    main()
+    make_things()
+    from seneca import __main__
+    __main__.main()
