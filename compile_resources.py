@@ -14,11 +14,9 @@ def execute_this(cmd_list, path=None):
     except Exception as e:
         print('Exception!! => ', e)
 
-def make_things():
+def build():
     execute_this([resource_cmd, resource_file], resource_dir)
     execute_this(['mv', 'data/seneca.gresource', 'seneca'])
 
 if __name__ == '__main__':
-    make_things()
-    from seneca import __main__
-    __main__.main()
+    build()
