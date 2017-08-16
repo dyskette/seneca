@@ -131,6 +131,7 @@
         </child>
         <child>
           <object class="GtkBox">
+            <property name="width_request">240</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <property name="margin_top">9</property>
