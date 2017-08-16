@@ -15,18 +15,22 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from . import VERSION
+
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
-class AboutDialog():
+class AboutDialog(Gtk.AboutDialog):
 
     def __init__(self, window):
-        resource = '/com/github/dyskette/seneca/ui/about.ui'
-        builder = Gtk.Builder.new_from_resource(resource)
-
-        self.about = builder.get_object('about_dialog')
-        self.about.set_transient_for(window)
+        Gtk.AboutDialog.__init__(self,
+                                 transient_for=window, modal=True,
+                                 license_type=Gtk.License.GPL_3_0,
+                                 authors=[AUTHOR, ],
+                                 copyright='Copyright © 2017 Eddy Castillo',
+                                 logo_icon_name='com.github.dyskette.seneca',
+                                 version=VERSION)
 
 class FileChooserDialog(Gtk.FileChooserDialog):
 

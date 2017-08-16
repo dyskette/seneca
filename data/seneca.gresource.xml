@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
      <gresource prefix="/com/github/dyskette/seneca">
-        <file preprocess="xml-stripblanks">ui/about.ui</file>
         <file preprocess="xml-stripblanks">ui/window.ui</file>
         <!-- Using these alias, GtkApplication will automatically pick them up for us. -->
         <file alias="gtk/menus.ui" preprocess="xml-stripblanks">ui/menus.ui</file>

@@ -93,7 +93,7 @@ class Application(Gtk.Application):
 
     def on_about(self, action, param):
         dialog = AboutDialog(self.get_active_window())
-        dialog.about.present()
+        dialog.present()
 
     def on_quit(self, action, param):
         self.quit()
