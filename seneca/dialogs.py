@@ -27,7 +27,7 @@ class AboutDialog(Gtk.AboutDialog):
         Gtk.AboutDialog.__init__(self,
                                  transient_for=window, modal=True,
                                  license_type=Gtk.License.GPL_3_0,
-                                 authors=[AUTHOR, ],
+                                 authors=['Eddy Castillo', ],
                                  copyright='Copyright © 2017 Eddy Castillo',
                                  logo_icon_name='com.github.dyskette.seneca',
                                  version=VERSION)
