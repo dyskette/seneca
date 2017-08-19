@@ -16,7 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
-logging.basicConfig(level=logging.WARNING)
+logger = logging.getLogger(__name__)
 
 import gi
 gi.require_version('Gdk', '3.0')
@@ -75,7 +75,7 @@ class Book(WebKit2.WebView):
             if self.__doc is not None:
                 self.__doc.disconnect_by_func(self.reload_current_chapter)
 
-            logging.info('Opening {0}'.format(_path))
+            logger.info('Opening {0}'.format(path))
             self.__doc = _gepubdoc
             self.prepare_book()
 
@@ -118,7 +118,7 @@ class Book(WebKit2.WebView):
         _encoding = 'UTF-8'
         _base_uri = None
 
-        logging.info('Reloading: epub:///{0}'.format(self.__doc.get_current_path()))
+        logger.info('Reloading: epub:///{0}'.format(self.get_current_path()))
         self.load_bytes(_bytes,
                         _mime,
                         _encoding,
@@ -139,6 +139,7 @@ class Book(WebKit2.WebView):
         Parameters:
             request (WebKit2.URISchemeRequest)
         """
+        logger.info('Resolving epub scheme')
         if not self.__doc:
             return
 
@@ -173,16 +174,16 @@ class Book(WebKit2.WebView):
         stream_length = _bytes.get_size()
         mime = self.__doc.get_resource_mime(_path)
 
-        logging.info('Delivering: {0}'.format(_uri))
+        logger.info('Delivering: {0}'.format(_uri))
         request.finish(stream, stream_length, mime)
 
     def on_load_change(self, webview, load_event):
         if load_event is WebKit2.LoadEvent.FINISHED:
-            logging.info('Load event finished')
+            logger.info('Load event finished')
             self.setup_view()
 
     def on_size_change(self, webview, gdk_rectangle):
-        logging.info('Size changed')
+        logger.info('Size changed')
         self.recalculate_content()
 
     def setup_view(self):
@@ -306,12 +307,12 @@ class Book(WebKit2.WebView):
         }}
         '''.format(img_js_inner)
 
-        logging.info('Running body and wrapper javascript...')
+        logger.info('Running body and wrapper javascript...')
         self.run_javascript(body_js)
         self.run_javascript(wrapper_js)
 
         if self.__settings.paginate:
-            logging.info('Running pagination javascript...')
+            logger.info('Running pagination javascript...')
             self.run_javascript(column_js)
             # FIXME: This break some books, I was trying to imitate calibre viewer.
             #self.run_javascript(img_js)
@@ -320,7 +321,7 @@ class Book(WebKit2.WebView):
 
     def recalculate_content(self):
         self.__view_width = self.get_allocation().width
-        logging.info('View width: {0}'.format(self.__view_width))
+        logger.info('View width: {0}'.format(self.__view_width))
 
         if self.__settings.paginate:
             js_string = 'document.title = document.body.scrollWidth;'
@@ -333,15 +334,15 @@ class Book(WebKit2.WebView):
         try:
             js_result = self.run_javascript_finish(result)
         except Exception as e:
-            logging.error('Error getting scroll width: {0}'.format(e))
+            logger.error('Error getting scroll width: {0}'.format(e))
 
         self.__scroll_width = int(self.get_property('title'))
-        logging.info('Scroll width: {0}'.format(self.__scroll_width))
+        logger.info('Scroll width: {0}'.format(self.__scroll_width))
 
         # When doing a page_prev, don't jump to the beginning of the chapter,
         # instead show the end of the chapter. But only if it's long enough.
         if self.__is_page_prev:
-            logging.info('Page prev: Set chapter position accordingly')
+            logger.info('Page prev: Set chapter position accordingly')
             self.__chapter_pos = 100 * self.__scroll_width // 100
 
             if self.__chapter_pos > (self.__scroll_width - self.__view_width):
@@ -356,10 +357,10 @@ class Book(WebKit2.WebView):
         try:
             js_result = self.run_javascript_finish(result)
         except Exception as e:
-            logging.error('Error getting id position: {0}'.format(e))
+            logger.error('Error getting id position: {0}'.format(e))
 
         self.__chapter_pos = int(self.get_property('title'))
-        logging.info('Id position: {0}'.format(self.__chapter_pos))
+        logger.info('Fragment position: {0}'.format(self.__chapter_pos))
         self.adjust_chapter_pos()
 
     def adjust_chapter_pos(self):
@@ -368,7 +369,7 @@ class Book(WebKit2.WebView):
         When the view is paginated, adjust chapter position given an arbitrary
         number, i.e. go to the next page if the position given is closer to it.
         """
-        logging.info('Adjusting position value')
+        logger.info('Adjusting position value')
         _page = self.__chapter_pos // self.__view_width
         _next = _page + 1
 
@@ -388,7 +389,7 @@ class Book(WebKit2.WebView):
         self.scroll_to_position()
 
     def scroll_to_position(self):
-        logging.info('Scrolling to... {0}'.format(self.__chapter_pos))
+        logger.info('Scrolling to... {0}'.format(self.__chapter_pos))
 
         js_string = 'document.querySelector(\'body\').scrollTo({0}, 0)'.format(self.__chapter_pos)
         self.run_javascript(js_string)
@@ -400,7 +401,7 @@ class Book(WebKit2.WebView):
     def on_scroll_to_id(self, webview, load_event, _id):
         # TODO: Test scrolling when paginated is True
         if load_event is WebKit2.LoadEvent.FINISHED:
-            logging.info('Scrolling in new chapter to... {0}'.format(_id))
+            logger.info('Scrolling in new chapter to... {0}'.format(_id))
             js_string = 'window.location = \'{0}\';'.format(_id)
             self.run_javascript(js_string)
 

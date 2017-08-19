@@ -19,6 +19,10 @@ import os
 import sys
 
 def main():
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    logging.info('Started')
+
     import gi
     from gi.repository import Gio
 
@@ -37,6 +41,8 @@ def main():
         ret = application.run(sys.argv)
     except SystemExit as e:
         ret = e.code
+
+    logging.info('Finished')
 
     sys.exit(ret)
 
