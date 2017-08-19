@@ -68,13 +68,13 @@ class Application(Gtk.Application):
                     self.window.open_file(giofile)
                     first = True
                 else:
-                    # TODO: Spawn processes of this program with the file as argument
-                    cmd = 'seneca'
+                    # TODO: Check all open windows for file.
+                    cmd = 'com.github.dyskette.seneca'
                     flags = Gio.AppInfoCreateFlags.SUPPORTS_STARTUP_NOTIFICATION
                     appinfo = Gio.AppInfo.create_from_commandline(cmd, 'seneca', flags)
-                    # launch = appinfo.launch([giofile], None)
-                    # if not launch:
-                    #     print('Something went wrong!')
+                    launch = appinfo.launch([giofile], None)
+                    if not launch:
+                         print('Something went wrong!')
 
         self.activate()
 
