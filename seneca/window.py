@@ -19,6 +19,7 @@ from .gi_composites import GtkTemplate
 from .book import Book
 from .font import pangoFontDesc, cssFont
 from .settings import Settings
+from .toc import Toc
 
 import gi
 gi.require_version('Gdk', '3.0')
@@ -55,6 +56,7 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         self.init_template()
         self.settings = Settings()
         self.book = Book(self.settings)
+        self.book_toc = Toc(self.book, self.toc_treeview, self.toc_treestore)
         self.gtk_settings = Gtk.Settings.get_default()
 
         variant = GLib.Variant('s', self.settings.color)
@@ -96,6 +98,10 @@ class ApplicationWindow(Gtk.ApplicationWindow):
             print('Book couldn\'t be opened: {}'.format(e))
             #TODO: Use an application notification.
         else:
+            self.book_toc.populate_store()
+            self.toc_btn.set_active(True)
+            self.grid_sidebar.set_visible(True)
+
             self.header_bar.set_title(self.book.get_title())
             self.header_bar.set_subtitle(self.book.get_author())
 
