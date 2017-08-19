@@ -156,7 +156,7 @@ class Book(WebKit2.WebView):
             _path = _path[:_hash]
 
             if _path == self.__doc.get_current_path():
-                logging.info('Scrolling in same chapter to... {0}'.format(_id))
+                logger.info('Scrolling in same chapter to... {0}'.format(_id))
                 js_string = 'window.location = \'{0}\';'.format(_id)
                 self.run_javascript(js_string)
                 return
