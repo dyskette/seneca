@@ -41,10 +41,11 @@ class Book(WebKit2.WebView):
         self.__wk_settings = self.get_settings()
         self.__wk_context = self.get_context()
 
-        _gdk_color = Gdk.Color.parse(self.__settings.color_bg)
-        _gdk_rgba = Gdk.RGBA.from_color(_gdk_color[1])
-        self.set_background_color(_gdk_rgba)
+        gdk_color = Gdk.Color.parse(self.__settings.color_bg)
+        gdk_rgba = Gdk.RGBA.from_color(gdk_color[1])
+        self.set_background_color(gdk_rgba)
         self.__wk_settings.set_property('default-font-size', self.__settings.fontsize)
+        self.__wk_settings.set_property('enable-developer-extras', True)
 
         self.__wk_context.set_cache_model(WebKit2.CacheModel.DOCUMENT_VIEWER)
         self.__wk_context.register_uri_scheme('epub', self.on_epub_scheme)
@@ -54,54 +55,55 @@ class Book(WebKit2.WebView):
     def get_doc(self):
         return self.__doc
 
-    def set_doc(self, _gfile):
+    def set_doc(self, gfile):
         """ Receives a GFile object and uses Gepub.Doc to parse it.
 
         Parameters:
             GFile
         """
         try:
-            _path = _gfile.get_path()
-            if not _path:
+            path = gfile.get_path()
+            if not path:
                 raise AttributeError('GFile has empty path')
 
-            _gepubdoc = Gepub.Doc.new(_path)
+            doc = Gepub.Doc.new(path)
         except Exception as e:
             raise AttributeError(e)
         else:
-            if self.__doc == _gepubdoc:
+            if self.__doc == doc:
                 return
 
             if self.__doc is not None:
                 self.__doc.disconnect_by_func(self.reload_current_chapter)
 
             logger.info('Opening {0}'.format(path))
-            self.__doc = _gepubdoc
+            self.__doc = doc
             self.prepare_book()
 
     def prepare_book(self):
         """ Refreshing relevant variables for the book.
         """
-        # List of pages
+        # List of chapters
         for i in range(self.__doc.get_n_pages()):
-            self.__chapters.append(self.__doc.get_current_path())
-            self.__doc.go_next()
+            self.__chapters.append(self.get_current_path())
+            self.chapter_next()
 
-        # Identifier
+        # Identifier in settings
         self.__identifier = self.__doc.get_metadata('identifier')
         if not self.__identifier:
             self.__identifier = self.get_author() + self.get_title()
 
+        # Add book to settings
         if not self.__settings.get_book(self.__identifier):
             self.__settings.add_book(self.__identifier)
 
         # Position
-        _chapter = self.__settings.get_chapter(self.__identifier)
-        _position = self.__settings.get_position(self.__identifier)
+        chapter = self.__settings.get_chapter(self.__identifier)
+        position = self.__settings.get_position(self.__identifier)
 
-        self.__doc.set_page(_chapter)
+        self.set_chapter(chapter)
         self.reload_current_chapter()
-        self.__chapter_pos = _position
+        self.__chapter_pos = position
 
         # Signal: GObject.Object.signals.notify
         self.__doc.connect('notify::page', self.reload_current_chapter)
@@ -113,16 +115,16 @@ class Book(WebKit2.WebView):
         self.__scroll_width = 0
         self.__chapter_pos = 0
 
-        _bytes = self.__doc.get_current_with_epub_uris()
-        _mime = self.__doc.get_current_mime()
-        _encoding = 'UTF-8'
-        _base_uri = None
+        gbytes = self.__doc.get_current_with_epub_uris()
+        mime = self.__doc.get_current_mime()
+        encoding = 'UTF-8'
+        base_uri = None
 
         logger.info('Reloading: epub:///{0}'.format(self.get_current_path()))
-        self.load_bytes(_bytes,
-                        _mime,
-                        _encoding,
-                        _base_uri)
+        self.load_bytes(gbytes,
+                        mime,
+                        encoding,
+                        base_uri)
 
         self.__settings.save_pos(self.__identifier,
                                  self.get_chapter(),
@@ -143,39 +145,62 @@ class Book(WebKit2.WebView):
         if not self.__doc:
             return
 
-        _uri = request.get_uri()
-        _path = _uri[8:]
+        uri = request.get_uri()
+        # Remove epub scheme
+        path = uri[8:]
 
-        if _path == self.__doc.get_current_path():
+        jumped = self.jump_to_path(path)
+        if jumped:
             return
 
-        # Maybe is epub:///link/file#id
-        _hash = _path.find('#')
-        if _hash != -1:
-            _id = _path[_hash:]
-            _path = _path[:_hash]
+        gbytes = self.__doc.get_resource(path)
 
-            if _path == self.__doc.get_current_path():
-                logger.info('Scrolling in same chapter to... {0}'.format(_id))
-                js_string = 'window.location = \'{0}\';'.format(_id)
-                self.run_javascript(js_string)
-                return
+        stream = Gio.MemoryInputStream.new_from_bytes(gbytes)
+        stream_length = gbytes.get_size()
+        mime = self.__doc.get_resource_mime(path)
 
-        for i in range(len(self.__chapters)):
-            if _path in self.__chapters[i]:
-                self.__doc.set_page(i)
-                if _hash != -1:
-                    self.connect('load-changed', self.on_scroll_to_id, _id)
-                return
-
-        _bytes = self.__doc.get_resource(_path)
-
-        stream = Gio.MemoryInputStream.new_from_bytes(_bytes)
-        stream_length = _bytes.get_size()
-        mime = self.__doc.get_resource_mime(_path)
-
-        logger.info('Delivering: {0}'.format(_uri))
+        logger.info('Delivering: {0}'.format(uri))
         request.finish(stream, stream_length, mime)
+
+    def split_path(self, path):
+        path_list = path.split('#')
+
+        if len(path_list) == 1:
+            path_list.append('')
+
+        return tuple(path_list)
+
+    def find_path_in_chapters(self, path):
+        for i in range(len(self.__chapters)):
+            if path in self.__chapters[i]:
+                logger.info('Path found in chapter: {0}'.format(i))
+                return i
+        else:
+            logger.info('Path was not in any chapter')
+            return None
+
+    def jump_to_path(self, path):
+        path, fragment = self.split_path(path)
+
+        if not path.endswith('html'):
+            logger.info('Not a navigation link')
+            return False
+
+        chapter = self.find_path_in_chapters(path)
+
+        if path in self.get_current_path():
+            logger.info('Same chapter')
+            if fragment:
+                self.scroll_to_fragment(fragment)
+            return True
+        elif chapter is not None:
+            logger.info('Changing chapter')
+            self.set_chapter(chapter)
+            if fragment:
+                self.connect('load-changed', self.on_scroll_to_fragment, fragment)
+            return True
+        else:
+            return False
 
     def on_load_change(self, webview, load_event):
         if load_event is WebKit2.LoadEvent.FINISHED:
@@ -192,9 +217,9 @@ class Book(WebKit2.WebView):
 
         This function is called at every page switch or settings change.
         """
-        _gdk_color = Gdk.Color.parse(self.__settings.color_bg)
-        _gdk_rgba = Gdk.RGBA.from_color(_gdk_color[1])
-        self.set_background_color(_gdk_rgba)
+        gdk_color = Gdk.Color.parse(self.__settings.color_bg)
+        gdk_rgba = Gdk.RGBA.from_color(gdk_color[1])
+        self.set_background_color(gdk_rgba)
         self.__wk_settings.set_property('default-font-size', self.__settings.fontsize)
 
         body_js = '''
@@ -353,7 +378,7 @@ class Book(WebKit2.WebView):
         if self.__chapter_pos:
             self.adjust_chapter_pos()
 
-    def get_id_position_from_title(self, webview, result, user_data):
+    def get_pos_from_title(self, webview, result, user_data):
         try:
             js_result = self.run_javascript_finish(result)
         except Exception as e:
@@ -370,20 +395,20 @@ class Book(WebKit2.WebView):
         number, i.e. go to the next page if the position given is closer to it.
         """
         logger.info('Adjusting position value')
-        _page = self.__chapter_pos // self.__view_width
-        _next = _page + 1
+        page = self.__chapter_pos // self.__view_width
+        next = page + 1
 
-        _page_pos = self.__view_width * _page
-        _next_pos = self.__view_width * _next
+        page_pos = self.__view_width * page
+        next_pos = self.__view_width * next
 
-        _d1 = self.__chapter_pos - _page_pos
-        _d2 = _next_pos - self.__chapter_pos
+        d1 = self.__chapter_pos - page_pos
+        d2 = next_pos - self.__chapter_pos
 
         # The less, the better...
-        if _d1 < _d2:
-            self.__chapter_pos = _page_pos
+        if d1 < d2:
+            self.__chapter_pos = page_pos
         else:
-            self.__chapter_pos = _next_pos
+            self.__chapter_pos = next_pos
 
         # Alright, we are good to go.
         self.scroll_to_position()
@@ -398,14 +423,23 @@ class Book(WebKit2.WebView):
                                  self.get_chapter(),
                                  self.__chapter_pos)
 
-    def on_scroll_to_id(self, webview, load_event, _id):
+    def on_scroll_to_fragment(self, webview, load_event, fragment):
         # TODO: Test scrolling when paginated is True
         if load_event is WebKit2.LoadEvent.FINISHED:
-            logger.info('Scrolling in new chapter to... {0}'.format(_id))
-            js_string = 'window.location = \'{0}\';'.format(_id)
-            self.run_javascript(js_string)
+            self.scroll_to_fragment(fragment)
 
-        self.disconnect_by_func(self.on_scroll_to_id)
+            self.disconnect_by_func(self.on_scroll_to_fragment)
+
+    def scroll_to_fragment(self, fragment):
+        logger.info('Scrolling to fragment... #{0}'.format(fragment))
+        js_string = 'window.location = \'#{0}\';'.format(fragment)
+        self.run_javascript(js_string)
+        if self.__settings.paginate:
+            js_string = 'document.title = window.pageXOffset'.format(fragment)
+            self.run_javascript(js_string,
+                                None,
+                                self.get_pos_from_title,
+                                None)
 
     def get_paginate(self):
         return self.__settings.paginate
@@ -441,6 +475,20 @@ class Book(WebKit2.WebView):
         else:
             self.scroll_to_position()
 
+    def get_navigation(self):
+        ncx_bytes = self.__doc.get_resource_by_id('ncx')
+        nav_bytes = self.__doc.get_resource_by_id('nav')
+
+        if ncx_bytes:
+            logger.info('NCX file found')
+            return ('ncx', ncx_bytes)
+        elif nav_bytes:
+            logger.info('NAV file found')
+            return ('nav', nav_bytes)
+        else:
+            logger.info('No navigation file found')
+            return None
+
     def get_position(self):
         if not self.__chapter_pos:
             return 0
@@ -453,6 +501,9 @@ class Book(WebKit2.WebView):
 
     def get_chapter_length(self):
         return self.__scroll_width
+
+    def get_current_path(self):
+        return self.__doc.get_current_path()
 
     def get_chapter(self):
         return self.__doc.get_page()
