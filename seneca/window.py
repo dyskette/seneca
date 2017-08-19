@@ -31,8 +31,12 @@ class ApplicationWindow(Gtk.ApplicationWindow):
 
     header_bar = GtkTemplate.Child()
     open_menu = GtkTemplate.Child()
+    toc_btn = GtkTemplate.Child()
+    grid_sidebar = GtkTemplate.Child()
+    toc_treeview = GtkTemplate.Child()
+    toc_treestore = GtkTemplate.Child()
     main_popover = GtkTemplate.Child()
-    main_view = GtkTemplate.Child()
+    book_view = GtkTemplate.Child()
     prev_btn = GtkTemplate.Child()
     next_btn = GtkTemplate.Child()
     font_btn = GtkTemplate.Child()
@@ -80,8 +84,8 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         self.book.connect('drag-drop', self.on_drag_drop)
         self.book.connect('drag-data-received', self.on_drag_data_received)
 
-        self.main_view.pack_start(self.book, True, True, 0)
-        self.main_view.show_all()
+        self.book_view.pack_end(self.book, True, True, 0)
+        self.book_view.show_all()
 
         self.connect('size-allocate', self.on_size_allocate)
 
@@ -98,7 +102,6 @@ class ApplicationWindow(Gtk.ApplicationWindow):
             # Make headerbar buttons available
             self.prev_btn.set_sensitive(True)
             self.next_btn.set_sensitive(True)
-            self.open_menu.set_sensitive(True)
 
     def change_window_color(self, color):
         dark = self.gtk_settings.get_property('gtk-application-prefer-dark-theme')
@@ -207,6 +210,15 @@ class ApplicationWindow(Gtk.ApplicationWindow):
     @GtkTemplate.Callback
     def on_lineheight_more(self, widget):
         self.change_lineheight(self.settings.lineheight + 0.2)
+
+    @GtkTemplate.Callback
+    def on_toc_btn_toggled(self, widget):
+        visible = self.grid_sidebar.get_visible()
+        self.grid_sidebar.set_visible(not visible)
+
+    @GtkTemplate.Callback
+    def on_search_btn_toggled(self, widget):
+        pass
 
     def on_size_allocate(self, window, gdk_rectangle):
         self.settings.maximized = self.is_maximized()

@@ -2,17 +2,191 @@
 <!-- Generated with glade 3.20.0 -->
 <interface>
   <requires lib="gtk+" version="3.20"/>
+  <object class="GtkTreeStore" id="toc_treestore">
+    <columns>
+      <!-- column-name title -->
+      <column type="gchararray"/>
+      <!-- column-name uri -->
+      <column type="gchararray"/>
+    </columns>
+  </object>
   <template class="ApplicationWindow" parent="GtkApplicationWindow">
     <property name="can_focus">False</property>
     <property name="default_width">600</property>
     <property name="default_height">800</property>
     <property name="show_menubar">False</property>
     <child>
-      <object class="GtkBox" id="main_view">
+      <object class="GtkGrid" id="grid">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
         <child>
-          <placeholder/>
+          <object class="GtkPaned" id="hpaned">
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <child>
+              <object class="GtkGrid" id="grid_sidebar">
+                <property name="can_focus">False</property>
+                <child>
+                  <object class="GtkScrolledWindow" id="toc_sw">
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="hscrollbar_policy">never</property>
+                    <property name="shadow_type">none</property>
+                    <child>
+                      <object class="GtkTreeView" id="toc_treeview">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="hexpand">True</property>
+                        <property name="vexpand">True</property>
+                        <property name="model">toc_treestore</property>
+                        <property name="headers_visible">False</property>
+                        <property name="search_column">0</property>
+                        <property name="width_request">200</property>
+                        <child internal-child="selection">
+                          <object class="GtkTreeSelection"/>
+                        </child>
+                        <child>
+                          <object class="GtkTreeViewColumn" id="toc_treeview_column">
+                            <property name="title" translatable="yes">Title</property>
+                            <child>
+                              <object class="GtkCellRendererText" id="toc_cellrenderer_text">
+                                <property name="ellipsize">end</property>
+                              </object>
+                              <attributes>
+                                <attribute name="text">0</attribute>
+                              </attributes>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="left_attach">0</property>
+                    <property name="top_attach">0</property>
+                    <property name="width">3</property>
+                    <property name="height">3</property>
+                  </packing>
+                </child>
+                <style>
+                  <class name="sidebar"/>
+                </style>
+              </object>
+              <packing>
+                <property name="resize">False</property>
+                <property name="shrink">False</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkGrid" id="grid_documents">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="orientation">vertical</property>
+                <child>
+                  <object class="GtkBox" id="book_view">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="vexpand">True</property>
+                    <property name="orientation">vertical</property>
+                    <child>
+                      <placeholder/>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="left_attach">0</property>
+                    <property name="top_attach">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkSearchBar" id="search_bar">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="show_close_button">True</property>
+                    <child>
+                      <object class="GtkBox" id="search_box">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <child>
+                          <object class="GtkSearchEntry" id="search_entry">
+                            <property name="width_request">300</property>
+                            <property name="visible">True</property>
+                            <property name="can_focus">True</property>
+                            <property name="invisible_char">●</property>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="fill">True</property>
+                            <property name="position">0</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="go_up_btn">
+                            <property name="visible">True</property>
+                            <property name="can_focus">True</property>
+                            <property name="receives_default">False</property>
+                            <child>
+                              <object class="GtkImage">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="icon_name">go-up-symbolic</property>
+                                <property name="icon_size">1</property>
+                              </object>
+                            </child>
+                            <style>
+                              <class name="raised"/>
+                            </style>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="fill">True</property>
+                            <property name="position">1</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="go_down_btn">
+                            <property name="visible">True</property>
+                            <property name="can_focus">True</property>
+                            <property name="receives_default">False</property>
+                            <child>
+                              <object class="GtkImage">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="icon_name">go-down-symbolic</property>
+                                <property name="icon_size">1</property>
+                              </object>
+                            </child>
+                            <style>
+                              <class name="raised"/>
+                            </style>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="fill">True</property>
+                            <property name="position">2</property>
+                          </packing>
+                        </child>
+                        <style>
+                          <class name="linked"/>
+                        </style>
+                      </object>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="left_attach">0</property>
+                    <property name="top_attach">0</property>
+                  </packing>
+                </child>
+              </object>
+              <packing>
+                <property name="resize">True</property>
+                <property name="shrink">True</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="left_attach">0</property>
+            <property name="top_attach">1</property>
+          </packing>
         </child>
         <child>
           <placeholder/>
@@ -23,8 +197,7 @@
       <object class="GtkHeaderBar" id="header_bar">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
-        <property name="title">Softreader</property>
-        <property name="subtitle">A dream come true!</property>
+        <property name="title">Seneca</property>
         <property name="show_close_button">True</property>
         <child>
           <object class="GtkBox">
@@ -43,8 +216,8 @@
                     <property name="icon_name">go-previous-symbolic</property>
                   </object>
                 </child>
-                <accelerator key="space" signal="clicked" modifiers="GDK_SHIFT_MASK"/>
                 <accelerator key="Left" signal="clicked" modifiers="GDK_MOD1_MASK"/>
+                <accelerator key="space" signal="clicked" modifiers="GDK_SHIFT_MASK"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -65,8 +238,8 @@
                     <property name="icon_name">go-next-symbolic</property>
                   </object>
                 </child>
-                <accelerator key="space" signal="clicked"/>
                 <accelerator key="Right" signal="clicked" modifiers="GDK_MOD1_MASK"/>
+                <accelerator key="space" signal="clicked"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -77,6 +250,21 @@
             <style>
               <class name="linked"/>
             </style>
+          </object>
+        </child>
+        <child>
+          <object class="GtkToggleButton" id="toc_btn">
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <property name="receives_default">True</property>
+            <signal name="toggled" handler="on_toc_btn_toggled" swapped="no"/>
+            <child>
+              <object class="GtkImage">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="icon_name">view-list-symbolic</property>
+              </object>
+            </child>
           </object>
           <packing>
             <property name="position">1</property>
@@ -98,7 +286,26 @@
           </object>
           <packing>
             <property name="pack_type">end</property>
-            <property name="position">1</property>
+            <property name="position">2</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkToggleButton" id="search_btn">
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <property name="receives_default">True</property>
+            <signal name="toggled" handler="on_search_btn_toggled" swapped="no"/>
+            <child>
+              <object class="GtkImage">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="icon_name">edit-find-symbolic</property>
+              </object>
+            </child>
+          </object>
+          <packing>
+            <property name="pack_type">end</property>
+            <property name="position">3</property>
           </packing>
         </child>
       </object>
