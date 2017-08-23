@@ -42,13 +42,19 @@ class Book(WebKit2.WebView):
         self.__wk_settings = self.get_settings()
         self.__wk_context = self.get_context()
 
+        # Background color of webview
         gdk_color = Gdk.Color.parse(self.__settings.color_bg)
         gdk_rgba = Gdk.RGBA.from_color(gdk_color[1])
         self.set_background_color(gdk_rgba)
+
+        # Font size of webview
         self.__wk_settings.set_property('default-font-size', self.__settings.fontsize)
         self.__wk_settings.set_property('enable-developer-extras', True)
 
+        # Document viewer cache model
         self.__wk_context.set_cache_model(WebKit2.CacheModel.DOCUMENT_VIEWER)
+
+        # Connecting functions
         self.__wk_context.register_uri_scheme('epub', self.on_epub_scheme)
         self.connect('load-changed', self.on_load_change)
         self.connect('size-allocate', self.on_size_change)
@@ -84,6 +90,7 @@ class Book(WebKit2.WebView):
     def prepare_book(self):
         """ Refreshing relevant variables for the book.
         """
+        logger.info('Preparing book with settings')
         # Identifier in settings
         if self.__doc.identifier:
             self.__identifier = self.__doc.identifier
@@ -109,6 +116,7 @@ class Book(WebKit2.WebView):
         """ Reload current chapter in WebView. This function is
         connected to every page switch.
         """
+        logger.info('Reloading: {0}'.format(self.get_current_path()))
         self.__scroll_width = 0
         self.__chapter_pos = 0
 
@@ -117,7 +125,6 @@ class Book(WebKit2.WebView):
         encoding = 'UTF-8'
         base_uri = None
 
-        logger.info('Reloading: epub:///{0}'.format(self.get_current_path()))
         self.load_bytes(gbytes,
                         mime,
                         encoding,
@@ -154,7 +161,7 @@ class Book(WebKit2.WebView):
         stream_length = gbytes.get_size()
         mime = self.__doc.get_resource_mime(path)
 
-        logger.info('Delivering: {0}'.format(uri))
+        logger.info('Delivering: {0}'.format(path))
         request.finish(stream, stream_length, mime)
 
     def _get_path_fragment(self, _path):
