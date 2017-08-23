@@ -455,6 +455,9 @@ class Book(WebKit2.WebView):
         if self.__chapter_pos == 0 and self.get_chapter() == 0:
             return
 
+        if self.__is_page_prev:
+            return
+
         self.__chapter_pos = self.__chapter_pos - self.__view_width
 
         if self.__chapter_pos < 0:
