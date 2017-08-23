@@ -21,140 +21,70 @@ logger = logging.getLogger(__name__)
 import posixpath
 from lxml import etree
 
-DAISY = '{http://www.daisy.org/z3986/2005/ncx/}'
-XHTML = '{http://www.w3.org/1999/xhtml}'
-EPUB = '{http://www.idpf.org/2007/ops}'
+PATH_COL = 1
+FRAG_COL = 2
 
 class Toc:
 
     def __init__(self, book, treeview, treestore):
         self.book = book
-        self.toc_treeview = treeview
-        self.toc_treestore = treestore
+        self.treeview = treeview
+        self.treestore = treestore
 
-        self.setup_selection()
-
-    def setup_selection(self):
-        selection = self.toc_treeview.get_selection()
+        selection = self.treeview.get_selection()
         selection.connect('changed', self.on_selection_changed)
 
     def on_selection_changed(self, selection):
         logger.info('Selection changed')
         treemodel, treeiter = selection.get_selected()
-        path_col = 1
 
         if treeiter:
-            path_tuple = self.toc_treestore.get(treeiter, path_col)
-            try:
-                path = path_tuple[0]
-            except IndexError as e:
-                logger.info('IndexError: {0}'.format(e))
-            else:
-                logger.info('Path: {0}'.format(path))
-                self.book.jump_to_path(path)
+            path, fragment = treemodel.get(treeiter, PATH_COL, FRAG_COL)
+
+            logger.info('Path: {0}'.format(path))
+            self.book.jump_to_path_fragment(path, fragment)
 
     def initialize_selection(self, current_path):
         logger.info('Selecting active chapter in treeview')
-        selection = self.toc_treeview.get_selection()
+        selection = self.treeview.get_selection()
         selection.disconnect_by_func(self.on_selection_changed)
 
-        path_col = 1
-        storeiter = self.toc_treestore.get_iter_first()
+        storeiter = self.treestore.get_iter_first()
         while storeiter != None:
-            path_tuple = self.toc_treestore.get(storeiter, path_col)
+            path = self.treestore.get(storeiter, PATH_COL)[0]
+            if current_path in path:
+                logger.info('Path found in tree: {0}'.format(current_path))
+                break
 
-            try:
-                path = path_tuple[0]
-            except IndexError as e:
-                logger.info('IndexError: {0}'.format(e))
-            else:
-                if current_path in path:
-                    break
-
-            iter_parent = self.toc_treestore.iter_parent(storeiter)
-            iter_children = self.toc_treestore.iter_children(storeiter)
-            iter_next = self.toc_treestore.iter_next(storeiter)
+            iter_parent = self.treestore.iter_parent(storeiter)
+            iter_children = self.treestore.iter_children(storeiter)
+            iter_next = self.treestore.iter_next(storeiter)
 
             if iter_children:
                 storeiter = iter_children
             elif not iter_next and iter_parent:
-                iter_next = self.toc_treestore.iter_next(iter_parent)
+                iter_next = self.treestore.iter_next(iter_parent)
                 storeiter = iter_next
             else:
                 storeiter = iter_next
+        else:
+            logger.info('Path not found in tree: {0}'.format(current_path))
 
         if storeiter:
-            treepath = self.toc_treestore.get_path(storeiter)
-            self.toc_treeview.expand_to_path(treepath)
+            treepath = self.treestore.get_path(storeiter)
+            self.treeview.expand_to_path(treepath)
             selection.select_iter(storeiter)
+        else:
+            selection.unselect_all()
+            self.treeview.do_unselect_all(self.treeview)
 
         selection.connect('changed', self.on_selection_changed)
 
     def populate_store(self):
-        self.toc_treestore.clear()
-
-        toc_type, toc = self.book.get_navigation()
-
-        if toc_type == 'ncx':
-            self.parse_ncx(toc)
-        elif toc_type == 'nav':
-            self.parse_nav(toc)
-        else:
-            logger.info('Nothing to do')
-            return
+        logger.info('Populating tree store')
+        self.treestore.clear()
+        doc = self.book.get_doc()
+        doc.populate_store(self.treestore)
 
         current_path = self.book.get_current_path()
         self.initialize_selection(current_path)
-
-    def get_root(self, gbytes):
-        logger.info('Getting document root')
-        pybytes = gbytes.get_data()
-        parser = etree.XMLParser(ns_clean=True, recover=True, encoding='utf-8')
-        root = etree.fromstring(pybytes, parser=parser)
-
-        return root
-
-    def parse_ncx(self, ncx_bytes):
-        logger.info('Parsing...')
-        root = self.get_root(ncx_bytes)
-        navmap = root.find('{D}navMap'.format(D=DAISY))
-
-        def get_children(item, parent_iter):
-            title = item.find('{D}navLabel/{D}text'.format(D=DAISY)).text
-            path = item.find('{D}content'.format(D=DAISY)).get('src', '')
-            children = item.findall('{D}navPoint'.format(D=DAISY))
-
-            item_iter = self.toc_treestore.append(parent_iter, [title, path])
-
-            if children:
-                for child in children:
-                    get_children(child, item_iter)
-
-        for child in navmap.getchildren():
-            get_children(child, None)
-
-    def parse_nav(self, nav_bytes):
-        logger.info('Parsing...')
-        root = self.get_root(nav_bytes)
-        navs = root.findall('{X}body/{X}nav'.format(X=XHTML))
-
-        def get_children(item, parent_iter):
-            url = item.find('{0}a'.format(XHTML))
-
-            title = url.text
-            path = posixpath.normpath(url.get('href'))
-            ol = item.find('{0}ol'.format(XHTML))
-
-            item_iter = self.toc_treestore.append(parent_iter, [title, path])
-
-            if ol is not None:
-                li = ol.findall('{0}li'.format(XHTML))
-                for child in li:
-                    get_children(child, item_iter)
-
-        for nav in navs:
-            if nav.get('{0}type'.format(EPUB)) == 'toc':
-                ol = nav.find('{0}ol'.format(XHTML))
-                li = ol.findall('{0}li'.format(XHTML))
-                for child in li:
-                    get_children(child, None)

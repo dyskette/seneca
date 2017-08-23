@@ -6,7 +6,9 @@
     <columns>
       <!-- column-name title -->
       <column type="gchararray"/>
-      <!-- column-name uri -->
+      <!-- column-name path -->
+      <column type="gchararray"/>
+      <!-- column-name fragment -->
       <column type="gchararray"/>
     </columns>
   </object>

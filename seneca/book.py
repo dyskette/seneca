@@ -20,9 +20,11 @@ logger = logging.getLogger(__name__)
 
 import gi
 gi.require_version('Gdk', '3.0')
+gi.require_version('Soup', '2.4')
 gi.require_version('WebKit2', '4.0')
-gi.require_version('Gepub', '0.5')
-from gi.repository import Gdk, Gio, WebKit2, Gepub
+from gi.repository import Gdk, Gio, Soup, WebKit2
+
+from .epub import Epub
 
 class Book(WebKit2.WebView):
 
@@ -35,7 +37,6 @@ class Book(WebKit2.WebView):
         self.__scroll_width = 0
         self.__chapter_pos = 0
         self.__is_page_prev = False
-        self.__chapters = []
         self.__settings = _settings
 
         self.__wk_settings = self.get_settings()
@@ -66,7 +67,7 @@ class Book(WebKit2.WebView):
             if not path:
                 raise AttributeError('GFile has empty path')
 
-            doc = Gepub.Doc.new(path)
+            doc = Epub(path)
         except Exception as e:
             raise AttributeError(e)
         else:
@@ -83,14 +84,10 @@ class Book(WebKit2.WebView):
     def prepare_book(self):
         """ Refreshing relevant variables for the book.
         """
-        # List of chapters
-        for i in range(self.__doc.get_n_pages()):
-            self.__chapters.append(self.get_current_path())
-            self.chapter_next()
-
         # Identifier in settings
-        self.__identifier = self.__doc.get_metadata('identifier')
-        if not self.__identifier:
+        if self.__doc.identifier:
+            self.__identifier = self.__doc.identifier
+        else:
             self.__identifier = self.get_author() + self.get_title()
 
         # Add book to settings
@@ -108,8 +105,8 @@ class Book(WebKit2.WebView):
         # Signal: GObject.Object.signals.notify
         self.__doc.connect('notify::page', self.reload_current_chapter)
 
-    def reload_current_chapter(self, gepubdoc=None, event=None):
-        """ Reload current Gepub.Doc chapter in WebView. This function is
+    def reload_current_chapter(self, unused_a=None, unused_b=None):
+        """ Reload current chapter in WebView. This function is
         connected to every page switch.
         """
         self.__scroll_width = 0
@@ -132,8 +129,7 @@ class Book(WebKit2.WebView):
 
     def on_epub_scheme(self, request):
         """ Callback function. Everytime something is requested. It uses the
-        WebKit2.URISchemeRequest to find out the path requested and get it from
-        the Gepub.Doc object.
+        WebKit2.URISchemeRequest to find out the path and get it.
 
         Finish a WebKit2.URISchemeRequest by setting the contents of the request
         and its mime type.
@@ -146,10 +142,9 @@ class Book(WebKit2.WebView):
             return
 
         uri = request.get_uri()
-        # Remove epub scheme
-        path = uri[8:]
+        path, fragment = self._get_path_fragment(uri)
 
-        jumped = self.jump_to_path(path)
+        jumped = self.jump_to_path_fragment(path, fragment)
         if jumped:
             return
 
@@ -162,45 +157,38 @@ class Book(WebKit2.WebView):
         logger.info('Delivering: {0}'.format(uri))
         request.finish(stream, stream_length, mime)
 
-    def split_path(self, path):
-        path_list = path.split('#')
+    def _get_path_fragment(self, _path):
+        path = ''
+        fragment = ''
 
-        if len(path_list) == 1:
-            path_list.append('')
+        if _path:
+            soup_uri = Soup.URI.new(_path)
+            path = soup_uri.get_path()[1:]
+            fragment = soup_uri.get_fragment() or ''
 
-        return tuple(path_list)
+        return [path, fragment]
 
-    def find_path_in_chapters(self, path):
-        for i in range(len(self.__chapters)):
-            if path in self.__chapters[i]:
-                logger.info('Path found in chapter: {0}'.format(i))
-                return i
-        else:
-            logger.info('Path was not in any chapter')
-            return None
-
-    def jump_to_path(self, path):
-        path, fragment = self.split_path(path)
-
-        if not path.endswith('html'):
-            logger.info('Not a navigation link')
+    def jump_to_path_fragment(self, path, fragment):
+        if not self.__doc.is_navigation_type(path):
             return False
 
-        chapter = self.find_path_in_chapters(path)
+        if not path:
+            return False
 
-        if path in self.get_current_path():
+        current = self.get_current_path()
+        if path == current:
             logger.info('Same chapter')
             if fragment:
                 self.scroll_to_fragment(fragment)
+            else:
+                self.set_position(0)
             return True
-        elif chapter is not None:
+        else:
             logger.info('Changing chapter')
-            self.set_chapter(chapter)
+            self.__doc.set_page_by_path(path)
             if fragment:
                 self.connect('load-changed', self.on_scroll_to_fragment, fragment)
             return True
-        else:
-            return False
 
     def on_load_change(self, webview, load_event):
         if load_event is WebKit2.LoadEvent.FINISHED:
@@ -475,20 +463,6 @@ class Book(WebKit2.WebView):
         else:
             self.scroll_to_position()
 
-    def get_navigation(self):
-        ncx_bytes = self.__doc.get_resource_by_id('ncx')
-        nav_bytes = self.__doc.get_resource_by_id('nav')
-
-        if ncx_bytes:
-            logger.info('NCX file found')
-            return ('ncx', ncx_bytes)
-        elif nav_bytes:
-            logger.info('NAV file found')
-            return ('nav', nav_bytes)
-        else:
-            logger.info('No navigation file found')
-            return None
-
     def get_position(self):
         if not self.__chapter_pos:
             return 0
@@ -522,7 +496,9 @@ class Book(WebKit2.WebView):
         self.setup_view()
 
     def get_title(self):
-        return self.__doc.get_metadata('title')
+        return self.__doc.title
 
     def get_author(self):
-        return self.__doc.get_metadata('creator')
+        creator_list = self.__doc.get_metadata('creator')
+        if creator_list:
+            return creator_list[0]
