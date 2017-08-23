@@ -18,10 +18,14 @@
 import os
 import configparser
 
+import gi
+from gi.repository import GLib
+
 class Settings:
     def __init__(self):
-        app = 'seneca'
-        self.path = os.path.join(os.path.expanduser('~'), '.config', app, 'settings.ini')
+        userconfdir = GLib.get_user_config_dir()
+        prgname = GLib.get_prgname()
+        self.path = os.path.join(userconfdir, prgname, 'settings.ini')
         self.conf = configparser.ConfigParser()
 
         self.default = {'margin' : '20',
