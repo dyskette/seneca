@@ -33,9 +33,9 @@
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="hscrollbar_policy">never</property>
-                    <property name="shadow_type">none</property>
                     <child>
                       <object class="GtkTreeView" id="toc_treeview">
+                        <property name="width_request">200</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="hexpand">True</property>
@@ -43,7 +43,6 @@
                         <property name="model">toc_treestore</property>
                         <property name="headers_visible">False</property>
                         <property name="search_column">0</property>
-                        <property name="width_request">200</property>
                         <child internal-child="selection">
                           <object class="GtkTreeSelection"/>
                         </child>
@@ -218,8 +217,8 @@
                     <property name="icon_name">go-previous-symbolic</property>
                   </object>
                 </child>
-                <accelerator key="Left" signal="clicked" modifiers="GDK_MOD1_MASK"/>
-                <accelerator key="space" signal="clicked" modifiers="GDK_SHIFT_MASK"/>
+                <accelerator key="Left" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
+                <accelerator key="Page_Up" signal="clicked"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -240,8 +239,8 @@
                     <property name="icon_name">go-next-symbolic</property>
                   </object>
                 </child>
-                <accelerator key="Right" signal="clicked" modifiers="GDK_MOD1_MASK"/>
-                <accelerator key="space" signal="clicked"/>
+                <accelerator key="Right" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
+                <accelerator key="Page_Down" signal="clicked"/>
               </object>
               <packing>
                 <property name="expand">False</property>
