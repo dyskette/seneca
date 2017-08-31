@@ -63,33 +63,19 @@ class Application(Gtk.Application):
 
         first = False
         for giofile in files:
-            if self.is_supported(giofile):
-                if first is False and self.window.book.get_doc() is None:
-                    self.window.open_file(giofile)
-                    first = True
-                else:
-                    # TODO: Check all open windows for file.
-                    cmd = 'com.github.dyskette.seneca'
-                    flags = Gio.AppInfoCreateFlags.SUPPORTS_STARTUP_NOTIFICATION
-                    appinfo = Gio.AppInfo.create_from_commandline(cmd, 'seneca', flags)
-                    launch = appinfo.launch([giofile], None)
-                    if not launch:
-                         print('Something went wrong!')
+            if first is False and self.window.book.get_doc() is None:
+                self.window.open_file(giofile)
+                first = True
+            else:
+                # TODO: Check all open windows for file.
+                cmd = 'com.github.dyskette.seneca'
+                flags = Gio.AppInfoCreateFlags.SUPPORTS_STARTUP_NOTIFICATION
+                appinfo = Gio.AppInfo.create_from_commandline(cmd, 'seneca', flags)
+                launch = appinfo.launch([giofile], None)
+                if not launch:
+                     print('Something went wrong!')
 
         self.activate()
-
-    def is_supported(self, giofile):
-        try:
-            ftype = giofile.query_info(Gio.FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE,
-                                       Gio.FileQueryInfoFlags.NONE,
-                                       None)
-        except Exception as e:
-            return False
-        else:
-            if ftype.get_content_type() == 'application/epub+zip':
-                return True
-            else:
-                return False
 
     def on_about(self, action, param):
         dialog = AboutDialog(self.get_active_window())
