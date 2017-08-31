@@ -11,18 +11,46 @@
         <child>
           <object class="GtkShortcutsGroup">
             <property name="visible">True</property>
+            <property name="title" translatable="yes">Finding text</property>
             <child>
               <object class="GtkShortcutsShortcut">
                 <property name="visible">True</property>
-                <property name="accelerator">&lt;ctrl&gt;L</property>
-                <property name="title" translatable="yes">Love the current track</property>
+                <property name="accelerator">Page_Up</property>
+                <property name="title" translatable="yes">Previous page</property>
               </object>
             </child>
             <child>
               <object class="GtkShortcutsShortcut">
                 <property name="visible">True</property>
-                <property name="accelerator">&lt;ctrl&gt;N</property>
-                <property name="title" translatable="yes">Skip to the next track</property>
+                <property name="accelerator">Page_Down</property>
+                <property name="title" translatable="yes">Next page</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkShortcutsGroup">
+            <property name="visible">True</property>
+            <property name="title" translatable="yes">Finding text</property>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="visible">True</property>
+                <property name="title" translatable="yes">Show the search bar</property>
+                <property name="accelerator">&lt;Primary&gt;F</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="visible">True</property>
+                <property name="title" translatable="yes">Go to the next search result</property>
+                <property name="accelerator">&lt;Primary&gt;G</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="visible">True</property>
+                <property name="title" translatable="yes">Go to the previous search result</property>
+                <property name="accelerator">&lt;Primary&gt;&lt;shift&gt;G</property>
               </object>
             </child>
           </object>
