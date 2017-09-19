@@ -68,7 +68,7 @@ class Application(Gtk.Application):
                 first = True
             else:
                 # TODO: Check all open windows for file.
-                cmd = 'com.github.dyskette.seneca'
+                cmd = 'seneca'
                 flags = Gio.AppInfoCreateFlags.SUPPORTS_STARTUP_NOTIFICATION
                 appinfo = Gio.AppInfo.create_from_commandline(cmd, 'seneca', flags)
                 launch = appinfo.launch([giofile], None)
