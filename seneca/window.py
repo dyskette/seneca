@@ -37,6 +37,7 @@ class ApplicationWindow(Gtk.ApplicationWindow):
     header_bar = GtkTemplate.Child()
     open_menu = GtkTemplate.Child()
     toc_btn = GtkTemplate.Child()
+    grid = GtkTemplate.Child()
     grid_sidebar = GtkTemplate.Child()
     toc_treeview = GtkTemplate.Child()
     toc_treestore = GtkTemplate.Child()
