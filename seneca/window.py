@@ -17,6 +17,7 @@
 
 from .gi_composites import GtkTemplate
 from .book import Book
+from .book_error import BookError
 from .font import pangoFontDesc, cssFont
 from .settings import Settings
 from .toc import Toc
@@ -98,7 +99,7 @@ class ApplicationWindow(Gtk.ApplicationWindow):
     def open_file(self, _gfile):
         try:
             self.book.set_doc(_gfile)
-        except Exception as e:
+        except BookError as e:
             print('Book couldn\'t be opened: {}'.format(e))
             #TODO: Use an application notification.
         else:

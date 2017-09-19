@@ -25,6 +25,7 @@ gi.require_version('WebKit2', '4.0')
 from gi.repository import Gdk, Gio, Soup, WebKit2
 
 from .epub import Epub
+from .book_error import BookError
 
 class Book(WebKit2.WebView):
 
@@ -71,11 +72,11 @@ class Book(WebKit2.WebView):
         try:
             path = gfile.get_path()
             if not path:
-                raise AttributeError('GFile has empty path')
+                raise BookError('Empty path!')
 
             doc = Epub(path)
-        except Exception as e:
-            raise AttributeError(e)
+        except BookError as e:
+            raise
         else:
             if self.__doc == doc:
                 return

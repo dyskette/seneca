@@ -26,6 +26,8 @@ import gi
 gi.require_version('Soup', '2.4')
 from gi.repository import GLib, GObject, Soup
 
+from .book_error import BookError
+
 OASIS = '{urn:oasis:names:tc:opendocument:xmlns:container}'
 OPF = '{http://www.idpf.org/2007/opf}'
 DC = '{http://purl.org/dc/elements/1.1/}'
@@ -33,11 +35,6 @@ DAISY = '{http://www.daisy.org/z3986/2005/ncx/}'
 XHTML = '{http://www.w3.org/1999/xhtml}'
 EPUB = '{http://www.idpf.org/2007/ops}'
 XLINK = '{http://www.w3.org/1999/xlink}'
-
-class BookException(Exception):
-
-    def __init__(self, *args):
-        Exception.__init__(self, *args)
 
 class Epub(GObject.GObject):
 
@@ -66,25 +63,22 @@ class Epub(GObject.GObject):
 
     def _open(self, epub_path):
         if not GLib.file_test(epub_path, GLib.FileTest.EXISTS):
-            raise BookException('No such file or directory: {0}'.format(epub_path))
+            raise BookError('No such file or directory: {0}'.format(epub_path))
 
         if not GLib.file_test(epub_path, GLib.FileTest.IS_REGULAR):
-            raise BookException('Path is a directory: {0}'.format(epub_path))
+            raise BookError('Path is a directory: {0}'.format(epub_path))
 
         try:
             archive = zipfile.ZipFile(epub_path, 'r', compression=zipfile.ZIP_DEFLATED, allowZip64=True)
         except zipfile.BadZipFile as e:
-            raise BookException('Bad epub file: {0}'.format(epub_path))
+            raise BookError('Bad file: {0}'.format(epub_path))
         except zipfile.LargeZipFile as e:
-            raise BookException('Epub file too big'.format(epub_path))
+            raise BookError('Epub file too big'.format(epub_path))
 
         try:
-            archive.read('mimetype')
-        except KeyError as e:
-            raise BookException('Not an epub file: {0}'.format(epub_path))
-
-        if not archive.read('mimetype') == b'application/epub+zip':
-            raise BookException('Not an epub file: {0}'.format(epub_path))
+            assert (archive.read('mimetype') == b'application/epub+zip'), 'Wrong mimetype!'
+        except (KeyError, AssertionError) as e:
+            raise BookError('Not an epub file: {0}'.format(epub_path))
 
         container = archive.read('META-INF/container.xml')
         parser = etree.XMLParser(ns_clean=True, recover=True, encoding='utf-8')
@@ -373,12 +367,12 @@ class Epub(GObject.GObject):
     @page.setter
     def page(self, page):
         if not isinstance(page, int):
-            raise BookException('Wrong value type for page, should be int')
+            raise BookError('Wrong value type for page, should be int')
 
         if page >= 0 and page < len(self.spine):
             self.__current = page
         else:
-            raise BookException('Value out of range: 0 to {0}'.format(len(self.spine)))
+            raise BookError('Value out of range: 0 to {0}'.format(len(self.spine)))
 
     def go_prev(self):
         if self.__current == 0:
