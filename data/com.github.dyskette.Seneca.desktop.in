@@ -1,10 +1,11 @@
 [Desktop Entry]
 Name=Seneca
 Comment=Read documents in epub format
-Exec=com.github.dyskette.seneca
+TryExec=seneca
+Exec=seneca %U
 StartupNotify=True
 Terminal=False
 Type=Application
-Icon=com.github.dyskette.seneca
-Categories=GTK;Viewer;
+Icon=com.github.dyskette.Seneca
+Categories=GNOME;GTK;Office;Viewer;
 MimeType=application/epub+zip;

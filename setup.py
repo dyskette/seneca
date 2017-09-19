@@ -56,8 +56,8 @@ setuptools.setup(
 
     # This requires the option --single-version-externally-managed
     data_files=[
-        ('share/applications', ['data/com.github.dyskette.seneca.desktop']),
-        ('share/icons/hicolor/scalable/apps', ['data/com.github.dyskette.seneca.svg'])
+        ('share/applications', ['data/com.github.dyskette.Seneca.desktop']),
+        ('share/icons/hicolor/scalable/apps', ['data/com.github.dyskette.Seneca.svg'])
     ],
 
     install_requires=['lxml'],
@@ -66,7 +66,7 @@ setuptools.setup(
 
     entry_points={
         'console_scripts': [
-            'com.github.dyskette.seneca = seneca.__main__:main',
+            'seneca = seneca.__main__:main',
         ],
     }
 )
