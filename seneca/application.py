@@ -31,10 +31,10 @@ class Application(Gtk.Application):
                                  flags=Gio.ApplicationFlags.HANDLES_OPEN)
 
         GLib.set_application_name('Seneca')
-        GLib.set_prgname('seneca')
+        GLib.set_prgname('com.github.dyskette.Seneca')
 
         self.window = None
-        # self.settings = Gio.Settings.new('com.github.dyskette.seneca')
+        # self.settings = Gio.Settings.new('com.github.dyskette.Seneca')
 
     def do_startup(self):
         Gtk.Application.do_startup(self)

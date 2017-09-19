@@ -24,7 +24,7 @@ from gi.repository import GLib
 class Settings:
     def __init__(self):
         userconfdir = GLib.get_user_config_dir()
-        prgname = GLib.get_prgname()
+        prgname = 'seneca'
         self.path = os.path.join(userconfdir, prgname, 'settings.ini')
         self.conf = configparser.ConfigParser()
 
