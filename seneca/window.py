@@ -26,7 +26,7 @@ gi.require_version('Gdk', '3.0')
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gdk, Gtk, Gio, GLib
 
-@GtkTemplate(ui='/com/github/dyskette/seneca/ui/window.ui')
+@GtkTemplate(ui='/com/github/dyskette/Seneca/ui/window.ui')
 class ApplicationWindow(Gtk.ApplicationWindow):
     __gtype_name__ = 'ApplicationWindow'
 

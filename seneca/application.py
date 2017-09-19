@@ -27,7 +27,7 @@ class Application(Gtk.Application):
 
     def __init__(self):
         Gtk.Application.__init__(self,
-                                 resource_base_path='/com/github/dyskette/seneca',
+                                 resource_base_path='/com/github/dyskette/Seneca',
                                  flags=Gio.ApplicationFlags.HANDLES_OPEN)
 
         GLib.set_application_name('Seneca')
