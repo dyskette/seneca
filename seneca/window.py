@@ -79,12 +79,16 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         # self.open_menu.set_sensitive(False)
 
         # Drag and drop
-        self.targets = [Gtk.TargetEntry.new('text/uri-list', 0, 0)]
-        self.book.drag_dest_set(Gtk.DestDefaults.MOTION | Gtk.DestDefaults.DROP,
-                                self.targets,
+        # Unset webview as a drop destination
+        self.book.drag_dest_unset()
+
+        # FIXME: Window raises on drop event. Why?
+        self.uri_list = 11
+        targets = [Gtk.TargetEntry.new('text/uri-list', 0, self.uri_list)]
+        self.grid.drag_dest_set(Gtk.DestDefaults.ALL,
+                                targets,
                                 Gdk.DragAction.COPY)
-        self.book.connect('drag-drop', self.on_drag_drop)
-        self.book.connect('drag-data-received', self.on_drag_data_received)
+        self.grid.connect('drag-data-received', self.on_drag_data_received)
 
         self.book_view.pack_end(self.book, True, True, 0)
         self.book_view.show_all()
@@ -231,27 +235,17 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         if not self.is_maximized():
             self.settings.width , self.settings.height = self.get_size()
 
-    def on_drag_drop(self, widget, context, x, y, time):
-        return True
-
     def on_drag_data_received(self, widget, context, x, y, data, info, time):
-        print('drag-data-received')
-        source = context.get_source_window()
+        logger.info('Drag data received')
 
-        if source and source.get_toplevel() == widget:
-            print('Not from the same window')
-            Gtk.drag_finish(context, False, False, time)
-            return
+        if info == self.uri_list:
+            uris = data.get_uris()
+            if uris:
+                files = []
+                for uri in uris:
+                    if uri.startswith('file://'):
+                        files.append(Gio.File.new_for_uri(uri))
 
-        uris = data.get_uris()
-        if not uris:
-            print('No uris...')
-            Gtk.drag_finish(context, False, False, time)
+                self.application.open(files, '')
 
-        files = []
-        for uri in uris:
-            if uri.startswith('file://'):
-                files.append(Gio.File.new_for_uri(uri))
-
-        self.application.open(files, '')
-        Gtk.drag_finish(context, True, False, time)
+        context.finish(True, False, time)
