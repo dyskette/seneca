@@ -73,7 +73,7 @@ class Application(Gtk.Application):
                 appinfo = Gio.AppInfo.create_from_commandline(cmd, 'seneca', flags)
                 launch = appinfo.launch([giofile], None)
                 if not launch:
-                     print('Something went wrong!')
+                     logger.error('Something went wrong!')
 
         self.activate()
 

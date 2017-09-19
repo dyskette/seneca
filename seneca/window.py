@@ -15,6 +15,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
+logger = logging.getLogger(__name__)
+
 from .gi_composites import GtkTemplate
 from .book import Book
 from .book_error import BookError
@@ -100,7 +103,7 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         try:
             self.book.set_doc(_gfile)
         except BookError as e:
-            print('Book couldn\'t be opened: {}'.format(e))
+            logger.error('Book couldn\'t be opened: {}'.format(e))
             #TODO: Use an application notification.
         else:
             self.book_toc.populate_store()

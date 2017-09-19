@@ -50,7 +50,11 @@ class Book(WebKit2.WebView):
 
         # Font size of webview
         self.__wk_settings.set_property('default-font-size', self.__settings.fontsize)
-        self.__wk_settings.set_property('enable-developer-extras', True)
+        if logger.getEffectiveLevel() <= logging.INFO:
+            self.__wk_settings.set_property('enable-developer-extras',
+                                            True)
+            self.__wk_settings.set_property('enable-write-console-messages-to-stdout',
+                                            True)
 
         # Document viewer cache model
         self.__wk_context.set_cache_model(WebKit2.CacheModel.DOCUMENT_VIEWER)
@@ -252,14 +256,19 @@ class Book(WebKit2.WebView):
 
         column_js_inner = '''
         function resizeColumn() {
+            console.log('resizeColumn was called');
             if (window.innerWidth < 800) {
+                console.log('View width less than 800');
                 document.body.style.columnWidth = window.innerWidth + 'px';
                 document.body.style.height = (window.innerHeight - 40) + 'px';
+                console.log('Column width is ' + window.innerWidth + 'px');
             }
             else {
-                document.body.style.columnWidth = (window.innerWidth / 2) + 'px';
+                console.log('View width equal or more than 800');
+                document.body.style.columnWidth = Math.floor(window.innerWidth / 2) + 'px';
                 document.body.style.height = (window.innerHeight - 40) + 'px';
                 document.body.style.columnCount = '2';
+                console.log('Column width is ' + Math.floor(window.innerWidth / 2) + 'px');
             }
         }
         resizeColumn();
