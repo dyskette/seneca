@@ -23,18 +23,7 @@ def main():
     logging.basicConfig(level=logging.INFO)
     logging.info('Started')
 
-    import gi
-    from gi.repository import Gio
-
-    filename = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'seneca.gresource')
-    if not os.path.exists(filename):
-        raise FileNotFoundError('gresource file missing: \'{0}\''.format(filename))
-
-    resource = Gio.Resource.load(filename)
-    Gio.Resource._register(resource)
-
     from .application import Application
-
     application = Application()
 
     try:
@@ -43,7 +32,6 @@ def main():
         ret = e.code
 
     logging.info('Finished')
-
     sys.exit(ret)
 
 if __name__ == '__main__':

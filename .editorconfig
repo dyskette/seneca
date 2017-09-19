@@ -7,6 +7,6 @@ charset = utf-8
 indent_style = space
 indent_size = 4
 
-[*.{ui,xml}]
+[*.{ui,xml,json,build}]
 indent_style = space
 indent_size = 2

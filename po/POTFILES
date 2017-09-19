@@ -1,0 +1,11 @@
+data/com.github.dyskette.Seneca.desktop.in
+data/ui/window.ui
+data/ui/menus.ui
+data/ui/help-overlay.ui
+
+
+
+seneca/application.py
+seneca/window.py
+seneca/dialogs.py
+seneca/book.py

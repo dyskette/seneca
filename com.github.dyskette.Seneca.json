@@ -1,0 +1,80 @@
+{
+  "app-id": "com.github.dyskette.Seneca",
+  "runtime": "org.gnome.Platform",
+  "runtime-version": "3.24",
+  "sdk": "org.gnome.Sdk",
+  "command": "seneca",
+  "finish-args": [
+    "--share=network",
+    "--share=ipc",
+    "--socket=x11",
+    "--socket=wayland",
+    "--filesystem=xdg-run/dconf",
+    "--filesystem=~/.config/dconf:ro",
+    "--talk-name=ca.desrt.dconf",
+    "--env=DCONF_USER_CONFIG_DIR=.config/dconf"
+  ],
+  "build-options": {
+    "cflags": "-O2 -g",
+    "cxxflags": "-O2 -g",
+    "env": {
+      "V": "1"
+    }
+  },
+  "cleanup": [
+    "/include",
+    "/lib/pkgconfig",
+    "/man",
+    "/share/doc",
+    "/share/gtk-doc",
+    "/share/man",
+    "/share/pkgconfig",
+
+    "*.la",
+    "*.a"
+  ],
+  "modules": [
+    {
+      "name": "python3-lxml",
+      "no-autogen": true,
+      "ensure-writable": ["/lib/python*/site-packages/easy-install.pth"],
+      "build-options": {
+        "cflags": "-I/usr/include",
+        "env": {
+          "XSLT_CONFIG": "pkg-config libxslt",
+          "XML2_CONFIG": "pkg-config libxml-2.0"
+        }
+      },
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://pypi.python.org/packages/20/b3/9f245de14b7696e2d2a386c0b09032a2ff6625270761d6543827e667d8de/lxml-3.8.0.tar.gz",
+          "sha256": "736f72be15caad8116891eb6aa4a078b590d231fdc63818c40c21624ac71db96"
+        },
+        {
+          "type": "file",
+          "path": "build-aux/flatpak/setuptools-makefile",
+          "dest-filename": "Makefile"
+        },
+        {
+          "type": "patch",
+          "path": "build-aux/flatpak/lxml-Fix-getting-lib-version-when-using-pkg-config.patch"
+        }
+      ]
+    },
+    {
+      "name": "seneca",
+      "buildsystem": "meson",
+      "config-opts": [
+        "--libdir=lib"
+      ],
+      "builddir": true,
+      "sources": [
+        {
+          "type": "git",
+          "url": "file:///home/sheep/Projects/seneca"
+        }
+      ]
+    }
+  ]
+}
