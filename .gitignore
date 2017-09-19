@@ -5,6 +5,9 @@
 # Compiled
 *.gresource
 
+# GNOME Builder
+.flatpak-builder
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
