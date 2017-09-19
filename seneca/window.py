@@ -18,17 +18,17 @@
 import logging
 logger = logging.getLogger(__name__)
 
+import gi
+gi.require_version('Gdk', '3.0')
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gdk, Gtk, Gio, GLib
+
 from .gi_composites import GtkTemplate
 from .book import Book
 from .book_error import BookError
 from .font import pangoFontDesc, cssFont
 from .settings import Settings
 from .toc import Toc
-
-import gi
-gi.require_version('Gdk', '3.0')
-gi.require_version('Gtk', '3.0')
-from gi.repository import Gdk, Gtk, Gio, GLib
 
 @GtkTemplate(ui='/com/github/dyskette/Seneca/ui/window.ui')
 class ApplicationWindow(Gtk.ApplicationWindow):
