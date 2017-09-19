@@ -61,11 +61,11 @@ class Application(Gtk.Application):
         if not self.window:
             self.window = ApplicationWindow(application=self)
 
-        first = False
+        has_book = self.window.book.get_doc() or False
         for giofile in files:
-            if first is False and self.window.book.get_doc() is None:
+            if not has_book or self.window.book.get_path() == giofile.get_path():
                 self.window.open_file(giofile)
-                first = True
+                has_book = True
             else:
                 # TODO: Check all open windows for file.
                 cmd = 'seneca'

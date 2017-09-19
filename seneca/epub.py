@@ -59,6 +59,8 @@ class Epub(GObject.GObject):
         self.__toc = ''
         self.__current = 0
 
+        self.path = ''
+
         self._open(path)
 
     def _open(self, epub_path):
@@ -102,6 +104,7 @@ class Epub(GObject.GObject):
                 opf_path = rootfile.get('full-path')
                 break
 
+        self.path = epub_path
         self._process_opf_file(archive, opf_path)
 
     def _process_opf_file(self, archive, opf_path):

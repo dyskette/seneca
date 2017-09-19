@@ -526,3 +526,6 @@ class Book(WebKit2.WebView):
         creator_list = self.__doc.get_metadata('creator')
         if creator_list:
             return creator_list[0]
+
+    def get_path(self):
+        return self.__doc.path
