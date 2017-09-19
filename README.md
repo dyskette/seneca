@@ -1,38 +1,36 @@
 # Seneca
 
-Seneca is a cute epub reader.
+Seneca is a cute epub reader. This is a work in progress, beware of bugs.
 
 ## Installation
 
-Download the files, extract and then run the next command inside the folder:
+Download the files, extract and then run the following inside the folder:
 
 ```
-python3 setup.py install --user
+mkdir builddir
+cd builddir
+meson ..
+ninja
+sudo ninja install
 ```
 
 To run:
 
 ```
-com.github.dyskette.seneca
-```
-
-OR for a system-wide installation:
-
-```
-python3 setup.py install --single-version-externally-managed --root / --prefix /usr
+seneca
 ```
 
 ## Requirements
 
 For installation:
-- python3-setuptools
+- meson
 - glib-compile-schemas
 
 For running:
-- Python3
-- GTK 3
+- Python 3
+- GTK+ 3
 - WebKit2
-- libgepub
+- lxml2
 
 ## License
 
