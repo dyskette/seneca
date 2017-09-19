@@ -231,7 +231,9 @@ class Book(WebKit2.WebView):
 
         wrapper_js = '''
         if (!document.getElementById('bookBodyInnerWrapper'))
-            document.body.innerHTML = '<div id="bookBodyInnerWrapper">' + document.body.innerHTML + '</div>';
+            document.body.innerHTML = '<div id="bookBodyInnerWrapper">' +
+                                      document.body.innerHTML +
+                                      '</div>';
 
         var wrapper = document.getElementById('bookBodyInnerWrapper');
 
@@ -421,7 +423,9 @@ class Book(WebKit2.WebView):
     def scroll_to_position(self):
         logger.info('Scrolling to... {0}'.format(self.__chapter_pos))
 
-        js_string = 'document.querySelector(\'body\').scrollTo({0}, 0)'.format(self.__chapter_pos)
+        js_string = '''
+        document.body.scrollTo({0}, 0)
+        '''.format(self.__chapter_pos)
         self.run_javascript(js_string)
 
         self.__settings.save_pos(self.__identifier,
