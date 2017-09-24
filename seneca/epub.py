@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 import zipfile
 import posixpath
+import html
 from lxml import etree
 
 import gi
@@ -232,7 +233,8 @@ class Epub(GObject.GObject):
             pass
 
     def _gbytes_to_elem(self, gbytes):
-        pybytes = gbytes.get_data()
+        str_utf8 = gbytes.get_data().decode('utf-8')
+        pybytes = html.unescape(str_utf8).encode('utf-8')
         parser = etree.XMLParser(ns_clean=True, recover=True, encoding='utf-8')
         elem = etree.fromstring(pybytes, parser=parser)
 
@@ -338,7 +340,7 @@ class Epub(GObject.GObject):
         set_epub_uri('a', 'href', None)
         set_epub_uri('content', 'src', None)
 
-        pybytes = etree.tostring(elem)
+        pybytes = etree.tostring(elem, encoding='utf-8')
         gbytes = GLib.Bytes(pybytes)
         return gbytes
 
