@@ -42,6 +42,7 @@ class Book(WebKit2.WebView):
 
         self.__wk_settings = self.get_settings()
         self.__wk_context = self.get_context()
+        self.__wk_find_controller = self.get_find_controller()
 
         # Background color of webview
         gdk_color = Gdk.Color.parse(self.__settings.color_bg)
@@ -61,6 +62,7 @@ class Book(WebKit2.WebView):
 
         # Connecting functions
         self.__wk_context.register_uri_scheme('epub', self.on_epub_scheme)
+        self.__wk_find_controller.connect('found-text', self.on_found_text)
         self.connect('load-changed', self.on_load_change)
         self.connect('size-allocate', self.on_size_change)
 
@@ -207,10 +209,6 @@ class Book(WebKit2.WebView):
             logger.info('Load event finished')
             self.setup_view()
 
-    def on_size_change(self, webview, gdk_rectangle):
-        logger.info('Size changed')
-        self.recalculate_content()
-
     def setup_view(self):
         """ Sets up the WebView content. It adds styles to the body itself and
         to a child element of body.
@@ -351,6 +349,10 @@ class Book(WebKit2.WebView):
 
         self.recalculate_content()
 
+    def on_size_change(self, webview, gdk_rectangle):
+        logger.info('Size changed')
+        self.recalculate_content()
+
     def recalculate_content(self):
         self.__view_width = self.get_allocation().width
         logger.info('View width: {0}'.format(self.__view_width))
@@ -375,11 +377,10 @@ class Book(WebKit2.WebView):
         # instead show the end of the chapter. But only if it's long enough.
         if self.__is_page_prev:
             logger.info('Page prev: Set chapter position accordingly')
-            self.__chapter_pos = 100 * self.__scroll_width // 100
-
-            if self.__chapter_pos > (self.__scroll_width - self.__view_width):
+            if self.__scroll_width > self.__view_width:
                 self.__chapter_pos = self.__scroll_width - self.__view_width
-
+            else:
+                self.__chapter_pos = 0
             self.__is_page_prev = False
 
         if self.__chapter_pos:
@@ -391,9 +392,10 @@ class Book(WebKit2.WebView):
         except Exception as e:
             logger.error('Error getting id position: {0}'.format(e))
 
-        self.__chapter_pos = int(self.get_property('title'))
-        logger.info('Fragment position: {0}'.format(self.__chapter_pos))
-        self.adjust_chapter_pos()
+        pos = int(self.get_property('title'))
+        logger.info('Javascript returned position: {0}'.format(pos))
+        if pos != self.__chapter_pos:
+            self.adjust_chapter_pos()
 
     def adjust_chapter_pos(self):
         """ Position adjustment function.
@@ -408,7 +410,7 @@ class Book(WebKit2.WebView):
         page_pos = self.__view_width * page
         next_pos = self.__view_width * next
 
-        d1 = self.__chapter_pos - page_pos
+        d1 = (self.__chapter_pos - page_pos) // 2
         d2 = next_pos - self.__chapter_pos
 
         # The less, the better...
@@ -435,16 +437,19 @@ class Book(WebKit2.WebView):
     def on_scroll_to_fragment(self, webview, load_event, fragment):
         # TODO: Test scrolling when paginated is True
         if load_event is WebKit2.LoadEvent.FINISHED:
-            self.scroll_to_fragment(fragment)
+            logger.info('Scrolling to fragment... #{0}'.format(fragment))
+            js_string = 'window.location = \'#{0}\';'.format(fragment)
+            self.run_javascript(js_string)
 
             self.disconnect_by_func(self.on_scroll_to_fragment)
+            self.run_position_javascript()
 
-    def scroll_to_fragment(self, fragment):
-        logger.info('Scrolling to fragment... #{0}'.format(fragment))
-        js_string = 'window.location = \'#{0}\';'.format(fragment)
-        self.run_javascript(js_string)
+    def run_position_javascript(self):
+        '''
+            Find out where we are with javascript.
+        '''
         if self.__settings.paginate:
-            js_string = 'document.title = window.pageXOffset'.format(fragment)
+            js_string = 'document.title = window.pageXOffset'
             self.run_javascript(js_string,
                                 None,
                                 self.get_pos_from_title,
@@ -494,7 +499,7 @@ class Book(WebKit2.WebView):
         return self.__chapter_pos / self.__scroll_width * 100
 
     def set_position(self, p):
-        self.__chapter_pos = p * self.__scroll_width / 100
+        self.__chapter_pos = int(p * self.__scroll_width / 100)
         self.adjust_chapter_pos()
 
     def get_chapter_length(self):
@@ -529,3 +534,19 @@ class Book(WebKit2.WebView):
 
     def get_path(self):
         return self.__doc.path
+
+    def find_text(self, search_text):
+        max_match_count = 1000
+        self.__wk_find_controller.search(search_text,
+                                         WebKit2.FindOptions.CASE_INSENSITIVE,
+                                         max_match_count)
+
+
+    def find_next(self):
+        self.__wk_find_controller.search_next()
+
+    def find_prev(self):
+        self.__wk_find_controller.search_previous()
+
+    def on_found_text(self, find_controller, match_count):
+        self.run_position_javascript()

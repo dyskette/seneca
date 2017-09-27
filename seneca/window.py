@@ -54,6 +54,11 @@ class ApplicationWindow(Gtk.ApplicationWindow):
     lineheight_default = GtkTemplate.Child()
     lineheight_more = GtkTemplate.Child()
     lineheight_label = GtkTemplate.Child()
+    search_btn = GtkTemplate.Child()
+    search_bar = GtkTemplate.Child()
+    search_entry = GtkTemplate.Child()
+    search_prev_btn = GtkTemplate.Child()
+    search_next_btn = GtkTemplate.Child()
 
     def __init__(self, application):
         Gtk.ApplicationWindow.__init__(self, application=application)
@@ -81,7 +86,9 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         # Initialize with headerbar buttons disabled
         self.prev_btn.set_sensitive(False)
         self.next_btn.set_sensitive(False)
-        # self.open_menu.set_sensitive(False)
+        self.toc_btn.set_sensitive(False)
+        self.search_btn.set_sensitive(False)
+        self.open_menu.set_sensitive(False)
 
         # Drag and drop
         # Unset webview as a drop destination
@@ -108,8 +115,6 @@ class ApplicationWindow(Gtk.ApplicationWindow):
             #TODO: Use an application notification.
         else:
             self.book_toc.populate_store()
-            self.toc_btn.set_active(True)
-            self.grid_sidebar.set_visible(True)
 
             self.header_bar.set_title(self.book.get_title())
             self.header_bar.set_subtitle(self.book.get_author())
@@ -117,6 +122,9 @@ class ApplicationWindow(Gtk.ApplicationWindow):
             # Make headerbar buttons available
             self.prev_btn.set_sensitive(True)
             self.next_btn.set_sensitive(True)
+            self.toc_btn.set_sensitive(True)
+            self.search_btn.set_sensitive(True)
+            self.open_menu.set_sensitive(True)
 
     def change_window_color(self, color):
         dark = self.gtk_settings.get_property('gtk-application-prefer-dark-theme')
@@ -233,7 +241,26 @@ class ApplicationWindow(Gtk.ApplicationWindow):
 
     @GtkTemplate.Callback
     def on_search_btn_toggled(self, widget):
-        pass
+        search_mode = self.search_bar.get_search_mode()
+        self.search_bar.set_search_mode(not search_mode)
+        if not search_mode:
+            self.search_entry.grab_focus()
+
+    @GtkTemplate.Callback
+    def on_search_changed(self, widget):
+        search_text = self.search_entry.get_text()
+        if self.book.get_doc():
+            self.book.find_text(search_text)
+
+    @GtkTemplate.Callback
+    def on_search_next(self, widget):
+        if self.book.get_doc():
+            self.book.find_next()
+
+    @GtkTemplate.Callback
+    def on_search_prev(self, widget):
+        if self.book.get_doc():
+            self.book.find_prev()
 
     def on_size_allocate(self, window, gdk_rectangle):
         self.settings.maximized = self.is_maximized()
