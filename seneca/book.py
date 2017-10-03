@@ -216,7 +216,6 @@ class Book(WebKit2.WebView):
 
         # Connecting functions
         self.__wk_context.register_uri_scheme('epub', self.on_epub_scheme)
-        self.__wk_context.connect('initialize-web-extensions', self.on_initialize_web_extensions)
         self.__wk_find_controller.connect('found-text', self.on_found_text)
         self.__wk_find_controller.connect('failed-to-find-text', self.on_failed_to_find_text)
         self.connect('load-changed', self.on_load_change)
