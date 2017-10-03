@@ -358,16 +358,25 @@ class Epub(GObject.GObject):
         return gbytes
 
     def get_resource_path(self, _id):
-        return self.__keys[_id]
+        try:
+            return self.__keys[_id]
+        except KeyError as e:
+            raise BookError('Wrong id or resource does not exist')
+
+    def try_resource(self, path, i):
+        try:
+            return self.resources[path][i]
+        except KeyError as e:
+            raise BookError('Wrong path or resource does not exist')
 
     def get_resource_id(self, path):
-        return self.resources[path][0]
+        return self.try_resource(path, 0)
 
     def get_resource(self, path):
-        return self.resources[path][1]
+        return self.try_resource(path, 1)
 
     def get_resource_mime(self, path):
-        return self.resources[path][2]
+        return self.try_resource(path, 2)
 
     def get_resource_with_epub_uris(self, path):
         content = self.get_resource(path)
