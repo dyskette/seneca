@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 
 import zipfile
 import posixpath
-import html
 from lxml import etree
 
 import gi
@@ -233,11 +232,13 @@ class Epub(GObject.GObject):
             pass
 
     def _gbytes_to_elem(self, gbytes):
-        str_utf8 = gbytes.get_data().decode('utf-8')
-        pybytes = html.unescape(str_utf8).encode('utf-8')
+        pybytes = gbytes.get_data()
+        # Correct HTML using etree
+        e_html = etree.HTML(pybytes)
+        pybytes = etree.tostring(e_html, encoding='utf-8')
+
         parser = etree.XMLParser(ns_clean=True, recover=True, encoding='utf-8')
         elem = etree.fromstring(pybytes, parser=parser)
-
         return elem
 
     def _get_path_fragment(self, _path):
