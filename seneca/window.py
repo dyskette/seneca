@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 import gi
 gi.require_version('Gdk', '3.0')
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gdk, Gtk, Gio, GLib
+from gi.repository import Gdk, Gtk, Gio, GLib, GObject
 
 from .gi_composites import GtkTemplate
 from .book import Book
@@ -89,6 +89,13 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         self.toc_btn.set_sensitive(False)
         self.search_btn.set_sensitive(False)
         self.open_menu.set_sensitive(False)
+
+        self.search_btn.bind_property('active',
+                                      self.search_bar,
+                                      'search-mode-enabled',
+                                      GObject.BindingFlags.BIDIRECTIONAL)
+        self.search_bar.connect('notify::search-mode-enabled',
+                                self.on_search_mode_enabled)
 
         # Drag and drop
         # Unset webview as a drop destination
@@ -239,11 +246,9 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         visible = self.grid_sidebar.get_visible()
         self.grid_sidebar.set_visible(not visible)
 
-    @GtkTemplate.Callback
-    def on_search_btn_toggled(self, widget):
+    def on_search_mode_enabled(self, widget, paramspec):
         search_mode = self.search_bar.get_search_mode()
-        self.search_bar.set_search_mode(not search_mode)
-        if not search_mode:
+        if search_mode:
             self.search_entry.grab_focus()
 
     @GtkTemplate.Callback
