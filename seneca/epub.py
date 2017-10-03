@@ -325,7 +325,7 @@ class Epub(GObject.GObject):
             else:
                 attrname = attr
 
-            tag_str = '{{*}}{0}'.format(tag)
+            tag_str = '{*}' + tag
             elem_iter = elem.iter(tag_str)
             for e in elem_iter:
                 # If element is inside <pre> tag, skip.
@@ -340,7 +340,10 @@ class Epub(GObject.GObject):
 
                 attr_content = e.get(attrname)
                 if attr_content:
-                    soup_uri = Soup.URI.new_with_base(soup_base, attr_content)
+                    if attr_content.startswith('#'):
+                        soup_uri = Soup.URI.new_with_base(Soup.URI.new('epub:///'), attr_content)
+                    else:
+                        soup_uri = Soup.URI.new_with_base(soup_base, attr_content)
                     uri = soup_uri.to_string(False)
                     e.set(attrname, uri)
 
