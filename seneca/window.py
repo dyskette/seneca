@@ -258,6 +258,10 @@ class ApplicationWindow(Gtk.ApplicationWindow):
             self.book.find_text(search_text)
 
     @GtkTemplate.Callback
+    def on_stop_search(self, widget):
+        self.search_bar.set_search_mode(False)
+
+    @GtkTemplate.Callback
     def on_search_next(self, widget):
         if self.book.get_doc():
             self.book.find_next()

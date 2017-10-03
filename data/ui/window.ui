@@ -113,6 +113,7 @@
                             <property name="can_focus">True</property>
                             <property name="invisible_char">●</property>
                             <signal name="search-changed" handler="on_search_changed"/>
+                            <signal name="stop-search" handler="on_stop_search"/>
                           </object>
                           <packing>
                             <property name="expand">False</property>
