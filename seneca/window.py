@@ -249,7 +249,11 @@ class ApplicationWindow(Gtk.ApplicationWindow):
     def on_search_mode_enabled(self, widget, paramspec):
         search_mode = self.search_bar.get_search_mode()
         if search_mode:
+            search_text = self.search_entry.get_text()
+            self.book.find_text(search_text)
             self.search_entry.grab_focus()
+        else:
+            self.book.find_text_finish()
 
     @GtkTemplate.Callback
     def on_search_changed(self, widget):

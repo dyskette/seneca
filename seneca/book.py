@@ -625,11 +625,14 @@ class Book(WebKit2.WebView):
         return self.__doc.path
 
     def find_text(self, search_text):
-        max_match_count = 1000
-        self.__wk_find_controller.search(search_text,
-                                         WebKit2.FindOptions.CASE_INSENSITIVE,
-                                         max_match_count)
+        if search_text:
+            max_match_count = 1000
+            self.__wk_find_controller.count_matches(search_text,
+                                                    WebKit2.FindOptions.CASE_INSENSITIVE,
+                                                    max_match_count)
 
+    def find_text_finish(self):
+        self.__wk_find_controller.search_finish()
 
     def find_next(self):
         self.__wk_find_controller.search_next()
