@@ -194,6 +194,9 @@ class Book(WebKit2.WebView):
         self.__scroll_width = 0
         self.__chapter_pos = 0
         self.__is_page_prev = False
+        self.__matches_list = []
+        self.__change_by_search = False
+        self.__is_match_prev = False
         self.__settings = _settings
         self.__helper = DBusHelper()
 
@@ -215,6 +218,7 @@ class Book(WebKit2.WebView):
         self.__wk_context.register_uri_scheme('epub', self.on_epub_scheme)
         self.__wk_context.connect('initialize-web-extensions', self.on_initialize_web_extensions)
         self.__wk_find_controller.connect('found-text', self.on_found_text)
+        self.__wk_find_controller.connect('failed-to-find-text', self.on_failed_to_find_text)
         self.connect('load-changed', self.on_load_change)
         self.connect('size-allocate', self.on_size_change)
 
@@ -367,6 +371,12 @@ class Book(WebKit2.WebView):
         if load_event is WebKit2.LoadEvent.FINISHED:
             logger.info('Load event finished')
             self.setup_view()
+            if self.__change_by_search:
+                if self.__is_match_prev:
+                    self.find_prev()
+                else:
+                    self.find_next()
+                self.__change_by_search = False
 
     def setup_view(self):
         """ Sets up the WebView content. It adds styles to the body itself and
@@ -630,16 +640,50 @@ class Book(WebKit2.WebView):
             self.__wk_find_controller.count_matches(search_text,
                                                     WebKit2.FindOptions.CASE_INSENSITIVE,
                                                     max_match_count)
+            self.__matches_list = self.__doc.find_text(search_text)
 
     def find_text_finish(self):
         self.__wk_find_controller.search_finish()
+        self.__matches_list = []
 
     def find_next(self):
-        self.__wk_find_controller.search_next()
+        if self.__matches_list:
+            self.__wk_find_controller.search_next()
+            self.__is_match_prev = False
 
     def find_prev(self):
-        self.__wk_find_controller.search_previous()
+        if self.__matches_list:
+            self.__wk_find_controller.search_previous()
+            self.__is_match_prev = True
 
     def on_found_text(self, find_controller, match_count):
         self.get_scroll_position()
 
+    def on_failed_to_find_text(self, find_controller):
+        search_text = find_controller.get_search_text()
+        if not search_text or not self.__matches_list:
+            return
+
+        chapter = self.get_chapter()
+        path = None
+
+        # FIXME: find_controller sometimes misses a match that is in view.
+        # I don't know if it's because it only searches forward by default.
+
+        if self.__is_match_prev:
+            ordered_matches = self.__matches_list[:chapter][::-1] + \
+                              self.__matches_list[chapter:][::-1]
+        else:
+            ordered_matches = self.__matches_list[chapter + 1:] + \
+                              self.__matches_list[:chapter + 1]
+
+        for i in range(len(ordered_matches)):
+            if ordered_matches[i][1]:
+                path = ordered_matches[i][0]
+                break
+
+        if path is not None and path != self.get_current_path():
+            self.__doc.set_page_by_path(path)
+            self.__change_by_search = True
+        else:
+            logger.info('No coincidences in epub')
