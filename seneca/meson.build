@@ -13,7 +13,8 @@ seneca_sources = [
   'epub.py',
   'font.py',
   'settings.py',
-  'toc.py'
+  'toc.py',
+  'pagination.py'
 ]
 
 install_data(seneca_sources, install_dir: moduledir)

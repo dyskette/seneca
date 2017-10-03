@@ -25,13 +25,17 @@ from .dialogs import AboutDialog, InfoDialog
 
 class Application(Gtk.Application):
 
-    def __init__(self):
+    def __init__(self, extensiondir):
         Gtk.Application.__init__(self,
                                  resource_base_path='/com/github/dyskette/Seneca',
                                  flags=Gio.ApplicationFlags.HANDLES_OPEN)
 
         GLib.set_application_name('Seneca')
         GLib.set_prgname('com.github.dyskette.Seneca')
+
+        # Set environment variable for webextension pythonloader
+        self.extensiondir = extensiondir
+        GLib.setenv('PYTHONPATH', self.extensiondir, True)
 
         self.window = None
         # self.settings = Gio.Settings.new('com.github.dyskette.Seneca')

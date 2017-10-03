@@ -11,6 +11,7 @@ if __name__ == "__main__":
     VERSION = '@VERSION@' # TODO: Use it!
     pkgdatadir = '@pkgdatadir@'
     localedir = '@localedir@'
+    extensiondir = '@extensiondir@'
 
     sys.path.insert(1, pkgdatadir)
     gettext.install('seneca', localedir)
@@ -19,4 +20,4 @@ if __name__ == "__main__":
     resource._register()
 
     from seneca import __main__
-    __main__.main()
+    __main__.main(extensiondir)

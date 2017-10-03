@@ -18,13 +18,13 @@
 import os
 import sys
 
-def main():
+def main(extensiondir):
     import logging
     logging.basicConfig(level=logging.INFO)
     logging.info('Started')
 
     from .application import Application
-    application = Application()
+    application = Application(extensiondir)
 
     try:
         ret = application.run(sys.argv)
