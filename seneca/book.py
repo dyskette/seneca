@@ -27,6 +27,65 @@ from gi.repository import Gdk, Gio, Soup, WebKit2
 from .epub import Epub
 from .book_error import BookError
 
+BODY_JS = '''
+document.body.style.backgroundColor = '{bg}';
+document.body.style.color = '{fg}';
+document.body.style.margin = '0px';
+'''
+
+WRAPPER_JS = '''
+if (!document.getElementById('bookBodyInnerWrapper'))
+    document.body.innerHTML = '<div id="bookBodyInnerWrapper">' +
+                              document.body.innerHTML +
+                              '</div>';
+
+var wrapper = document.getElementById('bookBodyInnerWrapper');
+
+wrapper.style.backgroundColor = '{bg}';
+wrapper.style.color = '{fg}';
+wrapper.style.margin = '0px {mg}px 0px {mg}px';
+wrapper.style.fontFamily = '{fs0}';
+wrapper.style.fontWeight = '{fs1}';
+wrapper.style.fontStyle = '{fs2}';
+wrapper.style.fontStretch = '{fs3}';
+wrapper.style.fontSize = '{fs4}px';
+wrapper.style.lineHeight = '{lh}';
+'''
+
+COL_JS_INNER = '''
+function resizeColumn() {
+    console.log('resizeColumn was called');
+    if (window.innerWidth < 800) {
+        console.log('View width less than 800');
+        document.body.style.columnWidth = window.innerWidth + 'px';
+        document.body.style.height = (window.innerHeight - 40) + 'px';
+        console.log('Column width is ' + window.innerWidth + 'px');
+    }
+    else {
+        console.log('View width equal or more than 800');
+        document.body.style.columnWidth = Math.floor(window.innerWidth / 2) + 'px';
+        document.body.style.height = (window.innerHeight - 40) + 'px';
+        document.body.style.columnCount = '2';
+        console.log('Column width is ' + Math.floor(window.innerWidth / 2) + 'px');
+    }
+}
+resizeColumn();
+window.addEventListener('resize', resizeColumn);
+'''
+
+COL_JS = '''
+if (!document.getElementById('columnJS')) {{
+    var child_script = document.createElement('script');
+    child_script.type = 'text/javascript';
+    child_script.id = 'columnJS'
+    child_script.innerHTML = `{0}`;
+    document.body.appendChild(child_script);
+}}
+document.body.style.overflow = 'hidden';
+document.body.style.margin = '20px 0px 20px 0px';
+document.body.style.columnGap = '0px';
+'''.format(COL_JS_INNER)
+
 class DBusHelper:
 
     def __init__(self):
@@ -317,132 +376,24 @@ class Book(WebKit2.WebView):
         self.set_background_color(gdk_rgba)
         self.__wk_settings.set_property('default-font-size', self.__settings.fontsize)
 
-        body_js = '''
-        document.body.style.backgroundColor = '{bg}';
-        document.body.style.color = '{fg}';
-        document.body.style.margin = '0px';
-        '''.format(bg=self.__settings.color_bg,
-                   fg=self.__settings.color_fg)
+        bodyjs = BODY_JS.format(bg=self.__settings.color_bg,
+                                 fg=self.__settings.color_fg)
 
-        wrapper_js = '''
-        if (!document.getElementById('bookBodyInnerWrapper'))
-            document.body.innerHTML = '<div id="bookBodyInnerWrapper">' +
-                                      document.body.innerHTML +
-                                      '</div>';
+        wrapperjs = WRAPPER_JS.format(mg=self.__settings.margin,
+                                       bg=self.__settings.color_bg,
+                                       fg=self.__settings.color_fg,
+                                       fs0=self.__settings.fontfamily,
+                                       fs1=self.__settings.fontweight,
+                                       fs2=self.__settings.fontstyle,
+                                       fs3=self.__settings.fontstretch,
+                                       fs4=self.__settings.fontsize,
+                                       lh=self.__settings.lineheight)
 
-        var wrapper = document.getElementById('bookBodyInnerWrapper');
-
-        wrapper.style.backgroundColor = '{bg}';
-        wrapper.style.color = '{fg}';
-        wrapper.style.margin = '0px {mg}px 0px {mg}px';
-        wrapper.style.fontFamily = '{fs0}';
-        wrapper.style.fontWeight = '{fs1}';
-        wrapper.style.fontStyle = '{fs2}';
-        wrapper.style.fontStretch = '{fs3}';
-        wrapper.style.fontSize = '{fs4}px';
-        wrapper.style.lineHeight = '{lh}';
-        '''.format(mg=self.__settings.margin,
-                   bg=self.__settings.color_bg,
-                   fg=self.__settings.color_fg,
-                   fs0=self.__settings.fontfamily,
-                   fs1=self.__settings.fontweight,
-                   fs2=self.__settings.fontstyle,
-                   fs3=self.__settings.fontstretch,
-                   fs4=self.__settings.fontsize,
-                   lh=self.__settings.lineheight)
-
-        column_js_inner = '''
-        function resizeColumn() {
-            console.log('resizeColumn was called');
-            if (window.innerWidth < 800) {
-                console.log('View width less than 800');
-                document.body.style.columnWidth = window.innerWidth + 'px';
-                document.body.style.height = (window.innerHeight - 40) + 'px';
-                console.log('Column width is ' + window.innerWidth + 'px');
-            }
-            else {
-                console.log('View width equal or more than 800');
-                document.body.style.columnWidth = Math.floor(window.innerWidth / 2) + 'px';
-                document.body.style.height = (window.innerHeight - 40) + 'px';
-                document.body.style.columnCount = '2';
-                console.log('Column width is ' + Math.floor(window.innerWidth / 2) + 'px');
-            }
-        }
-        resizeColumn();
-        window.addEventListener('resize', resizeColumn);
-        '''
-
-        column_js = '''
-        if (!document.getElementById('columnJS')) {{
-            var child_script = document.createElement('script');
-            child_script.type = 'text/javascript';
-            child_script.id = 'columnJS'
-            child_script.innerHTML = `{0}`;
-            document.body.appendChild(child_script);
-        }}
-        document.body.style.overflow = 'hidden';
-        document.body.style.margin = '20px 0px 20px 0px';
-        document.body.style.columnGap = '0px';
-        '''.format(column_js_inner)
-
-        img_js_inner = '''
-        function resizeImages() {
-            var avail_width = window.innerWidth - 40;
-            var avail_height = window.innerHeight - 40;
-
-            var img = document.getElementsByTagName('img');
-            var len = img.length;
-
-            for (var i = 0; i < len; i++) {
-                var image_width  = img[i].naturalWidth;
-                var image_height = img[i].naturalHeight;
-                var image_ratio = image_width / image_height;
-                var avail_ratio = avail_width / avail_height;
-                var width;
-                var height;
-
-                if (image_width >= avail_width || image_height >= avail_height) {
-                    if (avail_ratio > image_ratio) {
-                        width = Math.floor(image_width * avail_height / image_height);
-                        height = avail_height;
-                    } else {
-                        width = avail_width;
-                        height = Math.floor(image_height * avail_width / image_width);
-                    }
-                } else {
-                    width = image_width;
-                    height = image_height;
-                }
-
-                console.log('Image ' + i + ': ' + width + ' x ' + height);
-                img[i].style.width = width + 'px';
-                img[i].style.height = height + 'px';
-            }
-        }
-
-        resizeImages();
-        window.addEventListener('resize', resizeImages);
-        '''
-
-        img_js = '''
-        if (!document.getElementById('imgJS')) {{
-            var child_script = document.createElement('script');
-            child_script.type = 'text/javascript';
-            child_script.id = 'imgJS'
-            child_script.innerHTML = `{0}`;
-            document.body.appendChild(child_script);
-        }}
-        '''.format(img_js_inner)
-
-        logger.info('Running body and wrapper javascript...')
-        self.run_javascript(body_js)
-        self.run_javascript(wrapper_js)
-
+        logger.info('Running view javascript...')
+        self.run_javascript(bodyjs)
+        self.run_javascript(wrapperjs)
         if self.__settings.paginate:
-            logger.info('Running pagination javascript...')
-            self.run_javascript(column_js)
-            # FIXME: This break some books, I was trying to imitate calibre viewer.
-            #self.run_javascript(img_js)
+            self.run_javascript(COL_JS)
 
         self.recalculate_content()
 
