@@ -410,7 +410,6 @@ class Book(WebKit2.WebView):
         self.recalculate_content()
 
     def on_size_change(self, webview, gdk_rectangle):
-        logger.info('Size changed')
         self.recalculate_content()
 
     def recalculate_content(self):
@@ -437,7 +436,6 @@ class Book(WebKit2.WebView):
             logger.info('Scroll width: {0}'.format(self.__scroll_width))
         except Exception as e:
             logger.error('on_get_width: {}'.format(e))
-
 
         # When doing a page_prev, don't jump to the beginning of the chapter,
         # instead show the end of the chapter. But only if it's long enough.
@@ -469,7 +467,6 @@ class Book(WebKit2.WebView):
         """
         try:
             position = source.call_finish(result)[0]
-            logger.info('Scroll position: {0}'.format(position))
         except Exception as e:
             logger.error('on_get_scroll_position: {}'.format(e))
 
