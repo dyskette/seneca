@@ -22,7 +22,7 @@ import gi
 gi.require_version('Gdk', '3.0')
 gi.require_version('Soup', '2.4')
 gi.require_version('WebKit2', '4.0')
-from gi.repository import Gdk, Gio, Soup, WebKit2
+from gi.repository import Gdk, Gio, GLib, Soup, WebKit2
 
 from .epub import Epub
 from .book_error import BookError
@@ -308,19 +308,22 @@ class Book(WebKit2.WebView):
             return
 
         uri = request.get_uri()
-        path, fragment = self._get_path_fragment(uri)
+        logger.info('Resource request: {}'.format(uri))
 
-        jumped = self.jump_to_path_fragment(path, fragment)
-        if jumped:
+        try:
+            path, fragment = self._get_path_fragment(uri)
+            if self.jump_to_path_fragment(path, fragment):
+                return
+        except BookError as e:
+            logger.error('Could not get resource: {}'.format(e))
+            request.finish_error(GLib.Error(str(e)))
             return
 
         gbytes = self.__doc.get_resource(path)
-
         stream = Gio.MemoryInputStream.new_from_bytes(gbytes)
         stream_length = gbytes.get_size()
         mime = self.__doc.get_resource_mime(path)
 
-        logger.info('Delivering: {0}'.format(path))
         request.finish(stream, stream_length, mime)
 
     def _get_path_fragment(self, _path):
@@ -335,10 +338,10 @@ class Book(WebKit2.WebView):
         return [path, fragment]
 
     def jump_to_path_fragment(self, path, fragment):
-        if not self.__doc.is_navigation_type(path):
-            return False
-
         if not path:
+            path = self.get_current_path()
+
+        if not self.__doc.is_navigation_type(path):
             return False
 
         current = self.get_current_path()
