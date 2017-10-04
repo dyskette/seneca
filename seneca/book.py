@@ -200,6 +200,8 @@ class Book(WebKit2.WebView):
         self.__settings = _settings
         self.__helper = DBusHelper()
 
+        self.__connected_on_size = None
+
         self.__wk_settings = self.get_settings()
         self.__wk_find_controller = self.get_find_controller()
 
@@ -219,7 +221,6 @@ class Book(WebKit2.WebView):
         self.__wk_find_controller.connect('found-text', self.on_found_text)
         self.__wk_find_controller.connect('failed-to-find-text', self.on_failed_to_find_text)
         self.connect('load-changed', self.on_load_change)
-        self.connect('size-allocate', self.on_size_change)
 
     def get_doc(self):
         return self.__doc
@@ -376,6 +377,9 @@ class Book(WebKit2.WebView):
                 else:
                     self.find_next()
                 self.__change_by_search = False
+            if not self.__connected_on_size:
+                self.__connected_on_size = self.connect('size-allocate',
+                                                        self.on_size_change)
 
     def setup_view(self):
         """ Sets up the WebView content. It adds styles to the body itself and
