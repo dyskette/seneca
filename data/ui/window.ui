@@ -112,8 +112,8 @@
                             <property name="visible">True</property>
                             <property name="can_focus">True</property>
                             <property name="invisible_char">●</property>
-                            <signal name="search-changed" handler="on_search_changed"/>
-                            <signal name="stop-search" handler="on_stop_search"/>
+                            <signal name="search-changed" handler="on_search_changed" swapped="no"/>
+                            <signal name="stop-search" handler="on_stop_search" swapped="no"/>
                           </object>
                           <packing>
                             <property name="expand">False</property>
@@ -126,7 +126,7 @@
                             <property name="visible">True</property>
                             <property name="can_focus">True</property>
                             <property name="receives_default">False</property>
-                            <signal name="clicked" handler="on_search_prev"/>
+                            <signal name="clicked" handler="on_search_prev" swapped="no"/>
                             <child>
                               <object class="GtkImage">
                                 <property name="visible">True</property>
@@ -150,7 +150,7 @@
                             <property name="visible">True</property>
                             <property name="can_focus">True</property>
                             <property name="receives_default">False</property>
-                            <signal name="clicked" handler="on_search_next"/>
+                            <signal name="clicked" handler="on_search_next" swapped="no"/>
                             <child>
                               <object class="GtkImage">
                                 <property name="visible">True</property>
@@ -204,6 +204,15 @@
         <property name="title">Seneca</property>
         <property name="show_close_button">True</property>
         <child>
+          <object class="GtkButton" id="open_btn">
+            <property name="label" translatable="yes">Open</property>
+            <property name="visible">True</property>
+            <property name="can_focus">True</property>
+            <property name="receives_default">True</property>
+            <signal name="clicked" handler="on_open_btn" swapped="no"/>
+          </object>
+        </child>
+        <child>
           <object class="GtkBox">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
@@ -220,8 +229,8 @@
                     <property name="icon_name">go-previous-symbolic</property>
                   </object>
                 </child>
-                <accelerator key="Left" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
                 <accelerator key="Page_Up" signal="clicked"/>
+                <accelerator key="Left" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -242,8 +251,8 @@
                     <property name="icon_name">go-next-symbolic</property>
                   </object>
                 </child>
-                <accelerator key="Right" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
                 <accelerator key="Page_Down" signal="clicked"/>
+                <accelerator key="Right" signal="clicked" modifiers="GDK_CONTROL_MASK"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -255,6 +264,9 @@
               <class name="linked"/>
             </style>
           </object>
+          <packing>
+            <property name="position">1</property>
+          </packing>
         </child>
         <child>
           <object class="GtkToggleButton" id="toc_btn">
@@ -271,7 +283,7 @@
             </child>
           </object>
           <packing>
-            <property name="position">1</property>
+            <property name="position">2</property>
           </packing>
         </child>
         <child>

@@ -26,6 +26,7 @@ from gi.repository import Gdk, Gtk, Gio, GLib, GObject
 from .gi_composites import GtkTemplate
 from .book import Book
 from .book_error import BookError
+from .dialogs import FileChooserDialog
 from .font import pangoFontDesc, cssFont
 from .settings import Settings
 from .toc import Toc
@@ -59,6 +60,7 @@ class ApplicationWindow(Gtk.ApplicationWindow):
     search_entry = GtkTemplate.Child()
     search_prev_btn = GtkTemplate.Child()
     search_next_btn = GtkTemplate.Child()
+    open_btn = GtkTemplate.Child()
 
     def __init__(self, application):
         Gtk.ApplicationWindow.__init__(self, application=application)
@@ -279,6 +281,18 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         self.settings.maximized = self.is_maximized()
         if not self.is_maximized():
             self.settings.width , self.settings.height = self.get_size()
+
+    @GtkTemplate.Callback
+    def on_open_btn(self, widget):
+        file_chooser = FileChooserDialog(self.application.get_active_window())
+        response = file_chooser.run()
+        if response == Gtk.ResponseType.OK:
+            file_uri = file_chooser.get_uri()
+            if file_uri:
+                gfile = [Gio.File.new_for_uri(file_uri)]
+                self.application.open(gfile, '')
+
+        file_chooser.destroy()
 
     def on_drag_data_received(self, widget, context, x, y, data, info, time):
         logger.info('Drag data received')

@@ -34,14 +34,18 @@ class AboutDialog(Gtk.AboutDialog):
 
 class FileChooserDialog(Gtk.FileChooserDialog):
 
-    def __init__(self, title, parent):
+    def __init__(self, window):
         Gtk.FileChooserDialog.__init__(self,
-                                       title,
-                                       parent,
-                                       (Gtk.STOCK_CANCEL,
-                                        Gtk.ResponseType.CANCEL,
-                                        Gtk.STOCK_OPEN,
-                                        Gtk.ResponseType.ACCEPT))
+                                       transient_for=window, modal=True)
+
+        self.set_title('Open book')
+        self.add_button('Open', Gtk.ResponseType.OK)
+        self.add_button('Cancel', Gtk.ResponseType.CANCEL)
+        self.set_default_response(Gtk.ResponseType.OK)
+
+        filefilter = Gtk.FileFilter()
+        filefilter.add_mime_type('application/epub+zip')
+        self.set_filter(filefilter)
 
 class InfoDialog(Gtk.Dialog):
 
