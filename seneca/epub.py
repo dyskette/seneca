@@ -235,11 +235,12 @@ class Epub(GObject.GObject):
         if self.version == 3.0:
             pass
 
-    def _gbytes_to_elem(self, gbytes):
+    def _gbytes_to_elem(self, gbytes, html=True):
         pybytes = gbytes.get_data()
-        # Correct HTML using etree
-        e_html = etree.HTML(pybytes)
-        pybytes = etree.tostring(e_html, encoding='utf-8')
+        if html:
+            # Correct HTML using etree
+            e_html = etree.HTML(pybytes)
+            pybytes = etree.tostring(e_html, encoding='utf-8')
 
         parser = etree.XMLParser(ns_clean=True, recover=True, encoding='utf-8')
         elem = etree.fromstring(pybytes, parser=parser)
@@ -299,8 +300,8 @@ class Epub(GObject.GObject):
                     get_children(child, None)
 
     def populate_store(self, toc_treestore):
-        toc_gbytes = self.get_resource_with_epub_uris(self.__toc)
-        toc_elem = self._gbytes_to_elem(toc_gbytes)
+        toc_gbytes = self.get_resource_with_epub_uris(self.__toc, False)
+        toc_elem = self._gbytes_to_elem(toc_gbytes, False)
 
         if toc_elem.tag == '{0}ncx'.format(DAISY):
             self._parse_ncx(toc_elem, toc_treestore)
@@ -314,8 +315,8 @@ class Epub(GObject.GObject):
         else:
             return False
 
-    def _replace_uris(self, path, gbytes):
-        elem = self._gbytes_to_elem(gbytes)
+    def _replace_uris(self, path, gbytes, html):
+        elem = self._gbytes_to_elem(gbytes, html)
 
         def set_epub_uri(tag, attr, ns):
             if path:
@@ -382,10 +383,10 @@ class Epub(GObject.GObject):
     def get_resource_mime(self, path):
         return self.try_resource(path, 2)
 
-    def get_resource_with_epub_uris(self, path):
+    def get_resource_with_epub_uris(self, path, html=True):
         content = self.get_resource(path)
         dirname = posixpath.dirname(path)
-        replace = self._replace_uris(dirname, content)
+        replace = self._replace_uris(dirname, content, html)
         return replace
 
     def get_n_pages(self):
