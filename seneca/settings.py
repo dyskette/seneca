@@ -83,7 +83,7 @@ class Settings:
     def add_book(self, identifier):
         self.conf[identifier] = {}
         self.conf[identifier]['chapter'] = '0'
-        self.conf[identifier]['position'] = '0'
+        self.conf[identifier]['position'] = '0.0'
 
     def save_pos(self, identifier, chapter, position):
         self.conf[identifier]['chapter'] = str(chapter)
@@ -93,7 +93,7 @@ class Settings:
         return int(self.conf[identifier]['chapter'])
 
     def get_position(self, identifier):
-        return int(self.conf[identifier]['position'])
+        return float(self.conf[identifier]['position'])
 
     @property
     def margin(self):

@@ -192,7 +192,7 @@ class Book(WebKit2.WebView):
         self.__identifier = None
         self.__view_width = 0
         self.__scroll_width = 0
-        self.__chapter_pos = 0
+        self.__chapter_pos = None
         self.__is_page_prev = False
         self.__matches_list = []
         self.__change_by_search = False
@@ -264,13 +264,10 @@ class Book(WebKit2.WebView):
         if not self.__settings.get_book(self.__identifier):
             self.__settings.add_book(self.__identifier)
 
-        # Position
+        # Chapter
         chapter = self.__settings.get_chapter(self.__identifier)
-        position = self.__settings.get_position(self.__identifier)
-
         self.set_chapter(chapter)
         self.reload_current_chapter()
-        self.__chapter_pos = position
 
         # Signal: GObject.Object.signals.notify
         self.__doc.connect('notify::page', self.reload_current_chapter)
@@ -280,9 +277,6 @@ class Book(WebKit2.WebView):
         connected to every page switch.
         """
         logger.info('Reloading: {0}'.format(self.get_current_path()))
-        self.__scroll_width = 0
-        self.__chapter_pos = 0
-
         gbytes = self.__doc.get_current_with_epub_uris()
         mime = self.__doc.get_current_mime()
         encoding = 'UTF-8'
@@ -292,10 +286,6 @@ class Book(WebKit2.WebView):
                         mime,
                         encoding,
                         base_uri)
-
-        self.__settings.save_pos(self.__identifier,
-                                 self.get_chapter(),
-                                 self.__chapter_pos)
 
     def on_epub_scheme(self, request):
         """ Callback function. Everytime something is requested. It uses the
@@ -380,6 +370,8 @@ class Book(WebKit2.WebView):
             if not self.__connected_on_size:
                 self.__connected_on_size = self.connect('size-allocate',
                                                         self.on_size_change)
+            if self.__chapter_pos is not None:
+                self.__chapter_pos = 0
 
     def setup_view(self):
         """ Sets up the WebView content. It adds styles to the body itself and
@@ -446,6 +438,10 @@ class Book(WebKit2.WebView):
         except Exception as e:
             logger.error('on_get_width: {}'.format(e))
 
+        if self.__chapter_pos is None:
+            position = self.__settings.get_position(self.__identifier)
+            self.__chapter_pos = position * self.__scroll_width / 100
+
         # When doing a page_prev, don't jump to the beginning of the chapter,
         # instead show the end of the chapter. But only if it's long enough.
         if self.__is_page_prev:
@@ -461,6 +457,10 @@ class Book(WebKit2.WebView):
                 self.adjust_chapter_pos()
             else:
                 self.adjust_chapter_pos_on_size_change(position)
+        else:
+             self.__settings.save_pos(self.__identifier,
+                                      self.get_chapter(),
+                                      self.get_position())
 
     def adjust_chapter_pos_on_size_change(self, position):
         """Adjust position according to percentage"""
@@ -533,10 +533,10 @@ class Book(WebKit2.WebView):
         """
         try:
             self.__chapter_pos = source.call_finish(result)[0]
-            logger.info('Scroll position: {0}'.format(self.__chapter_pos))
+            logger.info('Scroll position: {0}'.format(self.get_position()))
             self.__settings.save_pos(self.__identifier,
                                      self.get_chapter(),
-                                     self.__chapter_pos)
+                                     self.get_position())
         except Exception as e:
             logger.error('on_pagination_scrollto: {}'.format(e))
 
