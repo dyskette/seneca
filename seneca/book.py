@@ -411,12 +411,13 @@ class Book(WebKit2.WebView):
         if self.__settings.paginate:
             self.run_javascript(COL_JS)
 
-        self.recalculate_content()
+        self.recalculate_content(True)
 
     def on_size_change(self, webview, gdk_rectangle):
-        self.recalculate_content()
+        position = self.get_position()
+        self.recalculate_content(False, position)
 
-    def recalculate_content(self):
+    def recalculate_content(self, adjust, position=None):
         self.__view_width = self.get_allocation().width
         logger.info('View width: {0}'.format(self.__view_width))
 
@@ -426,14 +427,18 @@ class Book(WebKit2.WebView):
             self.__helper.call('GetScrollLength',
                                dbus_args,
                                self.on_recalculate_content,
-                               self.get_page_id())
+                               self.get_page_id(),
+                               adjust,
+                               position)
 
-    def on_recalculate_content(self, source, result):
+    def on_recalculate_content(self, source, result, adjust, position):
         """Obtain document length
 
         Args:
             source (GObject.Object)
             result (Gio.AsyncResult)
+            adjust (bool)
+            position (float)
         """
         try:
             self.__scroll_width = source.call_finish(result)[0]
@@ -452,7 +457,14 @@ class Book(WebKit2.WebView):
             self.__is_page_prev = False
 
         if self.__chapter_pos:
-            self.adjust_chapter_pos()
+            if adjust:
+                self.adjust_chapter_pos()
+            else:
+                self.adjust_chapter_pos_on_size_change(position)
+
+    def adjust_chapter_pos_on_size_change(self, position):
+        """Adjust position according to percentage"""
+        self.set_position(position)
 
     def get_scroll_position(self):
         dbus_args = GLib.Variant("(ib)", (self.get_page_id(),
@@ -598,6 +610,9 @@ class Book(WebKit2.WebView):
         return self.__chapter_pos / self.__scroll_width * 100
 
     def set_position(self, p):
+        if not self.__scroll_width:
+            return
+
         self.__chapter_pos = int(p * self.__scroll_width / 100)
         self.adjust_chapter_pos()
 
