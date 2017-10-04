@@ -163,6 +163,9 @@ class Epub(GObject.GObject):
             if not etree.iselement(child) and child.tag != '{0}item'.format(OPF):
                 continue
 
+            if isinstance(child, etree._Comment):
+                continue
+
             props = child.get('properties', '')
             if props:
                 res_props = props.split(' ')
