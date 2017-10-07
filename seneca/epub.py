@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 
 import zipfile
 import posixpath
-import unicodedata
 from lxml import etree
 
 import gi
@@ -455,12 +454,6 @@ class Epub(GObject.GObject):
     def find_text(self, search_text):
         logger.info('Searching "{}" in epub resources'.format(search_text))
 
-        def remove_accents(input_str):
-            nfkd_form = unicodedata.normalize('NFKD', input_str)
-            output_str = u"".join([c for c in nfkd_form if not unicodedata.combining(c)])
-            return output_str
-
-        txt_norm = remove_accents(search_text)
         found_list = []
         for path in self.spine:
             res = self.get_resource(path)
@@ -468,13 +461,12 @@ class Epub(GObject.GObject):
             res_body = res_elem.xpath('//*[local-name() = "body"]')
 
             for body in res_body:
-                body_txt = ''
+                body_text = ''
                 for child in body.iter():
                     if child.text and not isinstance(child, etree._Comment):
-                        body_txt += child.text
+                        body_text += child.text
 
-                body_norm = remove_accents(body_txt)
-                found = txt_norm.lower() in body_norm.lower()
+                found = search_text.lower() in body_text.lower()
 
             found_list.append([path, found])
 
