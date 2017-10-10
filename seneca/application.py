@@ -16,6 +16,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import logging
+logger = logging.getLogger(__name__)
+
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gio, GLib
@@ -26,7 +29,9 @@ from .dialogs import AboutDialog, InfoDialog
 class Application(Gtk.Application):
 
     def __init__(self, extensiondir):
+        logger.info('Init')
         Gtk.Application.__init__(self,
+                                 application_id='com.github.dyskette.Seneca',
                                  resource_base_path='/com/github/dyskette/Seneca',
                                  flags=Gio.ApplicationFlags.HANDLES_OPEN)
 
@@ -36,11 +41,10 @@ class Application(Gtk.Application):
         # Set environment variable for webextension pythonloader
         self.extensiondir = extensiondir
         GLib.setenv('PYTHONPATH', self.extensiondir, True)
-
-        self.window = None
         # self.settings = Gio.Settings.new('com.github.dyskette.Seneca')
 
     def do_startup(self):
+        logger.info('Startup')
         Gtk.Application.do_startup(self)
 
         action = Gio.SimpleAction.new('about')
@@ -52,34 +56,62 @@ class Application(Gtk.Application):
         self.add_action(action)
 
     def do_activate(self):
-        if not self.window:
-            self.window = ApplicationWindow(application=self)
-        self.window.present()
+        logger.info('Activate')
+        if not self.get_windows():
+            window = ApplicationWindow(application=self)
+            window.present()
 
     def do_shutdown(self):
-        if self.window:
-            self.window.settings.save()
+        logger.info('Shutdown')
+        windows = self.get_windows()
+        for window in windows:
+            window.settings.save()
+            window.destroy()
         Gtk.Application.do_shutdown(self)
 
     def do_open(self, files, n_files, hint):
-        if not self.window:
-            self.window = ApplicationWindow(application=self)
+        logger.info('Open')
+        if not self.get_windows():
+            w = ApplicationWindow(application=self)
+            w.connect('delete-event', self.on_delete_event)
 
-        has_book = self.window.book.get_doc() or False
+        windows = self.get_windows()
+
         for giofile in files:
-            if not has_book or self.window.book.get_path() == giofile.get_path():
-                self.window.open_file(giofile)
-                has_book = True
+            for window in windows:
+                if window.book.get_path() == giofile.get_path():
+                    window.open_file(giofile)
+                    window.present()
+                    break
             else:
-                # TODO: Check all open windows for file.
-                cmd = 'seneca'
-                flags = Gio.AppInfoCreateFlags.SUPPORTS_STARTUP_NOTIFICATION
-                appinfo = Gio.AppInfo.create_from_commandline(cmd, 'seneca', flags)
-                launch = appinfo.launch([giofile], None)
-                if not launch:
-                     logger.error('Something went wrong!')
+                for window in windows:
+                    if window.book.get_doc() is None:
+                        window.open_file(giofile)
+                        window.present()
+                        break
+                else:
+                    window = ApplicationWindow(application=self)
+                    window.connect('delete-event', self.on_delete_event)
+                    window.open_file(giofile)
+                    window.present()
 
-        self.activate()
+    def on_delete_event(self, window, event):
+        """Close window, save settings and quit.
+
+        Args:
+            window (Gtk.Window)
+            event (Gdk.Event)
+
+        Returns:
+            True to stop other handlers from being invoked for the event.
+        """
+        if len(self.get_windows()) > 1:
+            window.settings.save()
+            window.destroy()
+        else:
+            self.quit()
+
+        return True
 
     def on_about(self, action, param):
         dialog = AboutDialog(self.get_active_window())
