@@ -291,9 +291,9 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         Returns:
             True to stop other handlers from being invoked for the event.
         """
-        if event.delta_y > 0.9:
+        if event.delta_y > 0.5:
             self.book.page_next()
-        elif event.delta_y < -0.9:
+        elif event.delta_y < -0.5:
             self.book.page_prev()
 
         return True
