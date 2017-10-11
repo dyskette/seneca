@@ -83,7 +83,7 @@ class Epub(GObject.GObject):
             raise BookError('Not an epub file: {0}'.format(epub_path))
 
         container = archive.read('META-INF/container.xml')
-        parser = etree.XMLParser(ns_clean=True, recover=True, encoding='utf-8')
+        parser = etree.XMLParser(encoding='utf-8')
         container_elem = etree.fromstring(container, parser=parser)
 
         # The <rootfiles> element MUST contain at least one <rootfile> element
@@ -109,7 +109,7 @@ class Epub(GObject.GObject):
 
     def _process_opf_file(self, archive, opf_path):
         epub_opf = archive.read(opf_path)
-        parser = etree.XMLParser(ns_clean=True, recover=True, encoding='utf-8')
+        parser = etree.XMLParser(encoding='utf-8')
         opf_elem = etree.fromstring(epub_opf, parser=parser)
 
         self.version = float(opf_elem.get('version'))
@@ -174,7 +174,7 @@ class Epub(GObject.GObject):
             res_type = child.get('media-type')
             res_id = child.get('id')
             res_path = posixpath.join(opf_dir_path, child.get('href'))
-            res_content = GLib.Bytes(archive.read(res_path))
+            res_content = archive.read(res_path)
 
             self.resources[res_path] = (res_id, res_content, res_type, res_props)
             self.__keys[res_id] = res_path
@@ -234,15 +234,12 @@ class Epub(GObject.GObject):
         if self.version == 3.0:
             pass
 
-    def _gbytes_to_elem(self, gbytes, html=True):
-        pybytes = gbytes.get_data()
+    def _bytes_to_elem(self, content_bytes, html=True):
         if html:
-            # Correct HTML using etree
-            e_html = etree.HTML(pybytes)
-            pybytes = etree.tostring(e_html, encoding='utf-8')
-
-        parser = etree.XMLParser(ns_clean=True, recover=True, encoding='utf-8')
-        elem = etree.fromstring(pybytes, parser=parser)
+            parser = etree.HTMLParser(encoding='utf-8')
+        else:
+            parser = etree.XMLParser(encoding='utf-8')
+        elem = etree.fromstring(content_bytes, parser=parser)
         return elem
 
     def _get_path_fragment(self, _path):
@@ -299,8 +296,8 @@ class Epub(GObject.GObject):
                     get_children(child, None)
 
     def populate_store(self, toc_treestore):
-        toc_gbytes = self.get_resource_with_epub_uris(self.__toc, False)
-        toc_elem = self._gbytes_to_elem(toc_gbytes, False)
+        toc_bytes = self.get_resource_with_epub_uris(self.__toc, False)
+        toc_elem = self._bytes_to_elem(toc_bytes, False)
 
         if toc_elem.tag == '{0}ncx'.format(DAISY):
             self._parse_ncx(toc_elem, toc_treestore)
@@ -314,8 +311,8 @@ class Epub(GObject.GObject):
         else:
             return False
 
-    def _replace_uris(self, path, gbytes, html):
-        elem = self._gbytes_to_elem(gbytes, html)
+    def _replace_uris(self, path, content_bytes, html):
+        elem = self._bytes_to_elem(content_bytes, html)
 
         def set_epub_uri(tag, attr, ns):
             if path:
@@ -357,9 +354,8 @@ class Epub(GObject.GObject):
         set_epub_uri('a', 'href', None)
         set_epub_uri('content', 'src', None)
 
-        pybytes = etree.tostring(elem, encoding='utf-8')
-        gbytes = GLib.Bytes(pybytes)
-        return gbytes
+        content_bytes = etree.tostring(elem)
+        return content_bytes
 
     def get_resource_path(self, _id):
         try:
@@ -457,7 +453,7 @@ class Epub(GObject.GObject):
         found_list = []
         for path in self.spine:
             res = self.get_resource(path)
-            res_elem = self._gbytes_to_elem(res)
+            res_elem = self._bytes_to_elem(res)
             res_body = res_elem.xpath('//*[local-name() = "body"]')
 
             for body in res_body:
