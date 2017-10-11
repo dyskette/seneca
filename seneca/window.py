@@ -78,6 +78,13 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         color_action.connect('change-state', self.change_color)
         self.add_action(color_action)
 
+        paginate_variant = GLib.Variant.new_boolean(self.settings.paginate)
+        paginate_action = Gio.SimpleAction.new_stateful('paginate',
+                                                        None,
+                                                        paginate_variant)
+        paginate_action.connect('change-state', self.change_paginate)
+        self.add_action(paginate_action)
+
         # Sync UI with settings
         self.set_default_size(self.settings.width, self.settings.height)
         if self.settings.maximized:
@@ -179,7 +186,12 @@ class ApplicationWindow(Gtk.ApplicationWindow):
 
         self.settings.color = color
         self.book.refresh_view()
+        action.set_state(value)
 
+    def change_paginate(self, action, value):
+        paginate = value.get_boolean()
+        self.settings.paginate = paginate
+        self.book.refresh_view()
         action.set_state(value)
 
     def change_fontsize(self, fontsize):
