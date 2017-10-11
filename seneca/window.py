@@ -109,7 +109,7 @@ class ApplicationWindow(Gtk.ApplicationWindow):
                                 targets,
                                 Gdk.DragAction.COPY)
         self.grid.connect('drag-data-received', self.on_drag_data_received)
-
+        self.book.connect('scroll-event', self.on_scroll_event)
         self.book.connect('key-press-event', self.on_book_key_press_event)
         self.book_view.pack_end(self.book, True, True, 0)
         self.book_view.show_all()
@@ -280,6 +280,23 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         self.settings.maximized = self.is_maximized()
         if not self.is_maximized():
             self.settings.width , self.settings.height = self.get_size()
+
+    def on_scroll_event(self, widget, event):
+        """Handles scroll on webview
+
+        Args:
+            widget (Gtk.Widget)
+            event (Gdk.EventScroll)
+
+        Returns:
+            True to stop other handlers from being invoked for the event.
+        """
+        if event.delta_y > 0.9:
+            self.book.page_next()
+        elif event.delta_y < -0.9:
+            self.book.page_prev()
+
+        return True
 
     def on_book_key_press_event(self, widget, event):
         """Handles key presses on webview
