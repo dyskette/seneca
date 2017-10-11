@@ -34,12 +34,7 @@ document.body.style.margin = '0px';
 '''
 
 WRAPPER_JS = '''
-if (!document.getElementById('bookBodyInnerWrapper'))
-    document.body.innerHTML = '<div id="bookBodyInnerWrapper">' +
-                              document.body.innerHTML +
-                              '</div>';
-
-var wrapper = document.getElementById('bookBodyInnerWrapper');
+var wrapper = document.getElementById('SenecaInnerWrapper');
 
 wrapper.style.backgroundColor = '{bg}';
 wrapper.style.color = '{fg}';
@@ -81,10 +76,21 @@ if (!document.getElementById('columnJS')) {{
     child_script.innerHTML = `{0}`;
     document.body.appendChild(child_script);
 }}
-document.body.style.overflow = 'hidden';
 document.body.style.margin = '20px 0px 20px 0px';
 document.body.style.columnGap = '0px';
 '''.format(COL_JS_INNER)
+
+COL_JS_REMOVE = '''
+if (document.getElementById('columnJS')) {
+    document.body.style.columnWidth = 'auto';
+    document.body.style.height = 'auto';
+    document.body.style.columnCount = 'auto';
+    document.body.style.overflow = 'auto';
+    document.body.style.margin = 'auto';
+    document.body.style.columnGap = 'auto';
+    document.body.removeChild(document.getElementById('columnJS'));
+}
+'''
 
 class DBusHelper:
 
@@ -175,307 +181,373 @@ class DBusHelper:
 
 class Book(WebKit2.WebView):
 
-    def __init__(self, _settings):
-        self.__wk_context = WebKit2.WebContext.get_default()
+    def __init__(self, settings):
+        """Initialize Book class
 
-        # WebExtensions
-        application = Gio.Application.get_default()
-        variant_lvl = GLib.Variant.new_int32(logger.getEffectiveLevel())
-        self.__wk_context.set_web_extensions_directory(application.extensiondir)
-        self.__wk_context.set_web_extensions_initialization_user_data(variant_lvl)
+        Args:
+            settings (Settings)
+        """
+        self.settings = settings
 
-        # Document viewer cache model
-        self.__wk_context.set_cache_model(WebKit2.CacheModel.DOCUMENT_VIEWER)
-        WebKit2.WebView.__init__(self, web_context=self.__wk_context)
+        # Webkit context
+        web_context = WebKit2.WebContext.get_default()
+        web_context.set_cache_model(WebKit2.CacheModel.DOCUMENT_VIEWER)
+        web_context.set_process_model(WebKit2.ProcessModel.MULTIPLE_SECONDARY_PROCESSES)
 
-        self.__doc = None
-        self.__identifier = None
-        self.__view_width = 0
-        self.__scroll_width = 0
-        self.__chapter_pos = None
-        self.__is_page_prev = False
-        self.__matches_list = []
-        self.__change_by_search = False
-        self.__is_match_prev = False
-        self.__settings = _settings
-        self.__helper = DBusHelper()
+        # Webkit extensions
+        def setup_web_extensions(context):
+            application = Gio.Application.get_default()
+            variant_lvl = GLib.Variant.new_int32(logger.getEffectiveLevel())
+            context.set_web_extensions_directory(application.extensiondir)
+            context.set_web_extensions_initialization_user_data(variant_lvl)
 
-        self.__connected_on_size = None
+        web_context.connect('initialize-web-extensions', setup_web_extensions)
+        web_context.register_uri_scheme('epub', self.on_epub_scheme)
 
-        self.__wk_settings = self.get_settings()
-        self.__wk_find_controller = self.get_find_controller()
+        # Webkit settings
+        web_settings = WebKit2.Settings()
+        web_settings.set_default_font_size(self.settings.fontsize)
+        web_settings.set_enable_smooth_scrolling(True)
+        web_settings.set_enable_plugins(False)
+
+        # Enable developer tools (like web inspector)
+        if logger.getEffectiveLevel() <= logging.INFO:
+            web_settings.set_enable_developer_extras(True)
+
+        # Initialize
+        WebKit2.WebView.__init__(self,
+                                 web_context=web_context,
+                                 settings=web_settings)
 
         # Background color of webview
-        gdk_color = Gdk.Color.parse(self.__settings.color_bg)
+        gdk_color = Gdk.Color.parse(self.settings.color_bg)
         gdk_rgba = Gdk.RGBA.from_color(gdk_color[1])
         self.set_background_color(gdk_rgba)
 
-        # Font size of webview
-        self.__wk_settings.set_property('default-font-size', self.__settings.fontsize)
-        if logger.getEffectiveLevel() <= logging.INFO:
-            self.__wk_settings.set_property('enable-developer-extras',
-                                            True)
+        # DBUS PCI
+        self.dbus_helper = DBusHelper()
 
-        # Connecting functions
-        self.__wk_context.register_uri_scheme('epub', self.on_epub_scheme)
-        self.__wk_find_controller.connect('found-text', self.on_found_text)
-        self.__wk_find_controller.connect('failed-to-find-text', self.on_failed_to_find_text)
-        self.connect('load-changed', self.on_load_change)
+        # Variables
+        self.doc = None
+        self.identifier = None
+
+        self.__matches_list = None
+        self.__is_match_prev = False
+        self.__page_turning = False
+
+        # Signals
+        self.on_reload_chapter_id = None
+        self.on_load_changed_id = self.connect('load-changed', self.on_load_change)
+        self.on_decide_policy_id = self.connect('decide-policy', self.on_decide_policy)
+        self.on_load_set_pos_id = None
+        self.on_load_by_fragment_id = None
+        self.on_load_by_search_id = None
+        self.on_resize_id = None
+        self.on_text_found_id = None
+        self.on_text_not_found_id = None
+
+    def get_path_fragment(self, uri):
+        """Use Soup.URI to split uri
+
+        Args:
+            uri (str)
+
+        Returns:
+            A list with two strings representing a path and fragment
+        """
+        path = None
+        fragment = None
+
+        if uri:
+            soup_uri = Soup.URI.new(uri)
+            path = soup_uri.get_path()[1:]
+            fragment = soup_uri.get_fragment()
+
+        return [path, fragment]
+
+    def jump_to_path_fragment(self, path, fragment):
+        """Evaluate path and fragment given to change chapter and/or position
+
+        Args:
+            path (str)
+            fragment (str)
+
+        Returns:
+            A boolean depending if the operation was succesful or not
+        """
+        current = self.doc.get_current_path()
+
+        if not path:
+            path = current
+
+        if not self.doc.is_navigation_type(path):
+            return False
+
+        if path == current:
+            logger.info('Same chapter')
+            if fragment:
+                self.set_scroll_to_fragment(fragment)
+            return True
+        else:
+            logger.info('Changing chapter')
+            self.doc.set_page_by_path(path)
+            if fragment:
+                if self.on_load_by_fragment_id is None:
+                    self.on_load_by_fragment_id = self.connect('load-changed',
+                                                               self.on_load_by_fragment,
+                                                               fragment)
+            else:
+                position = 0.0
+                self.settings.save_pos(self.identifier,
+                                       self.get_chapter(),
+                                       position)
+            return True
+
+        return False
+
+    def on_epub_scheme(self, request):
+        """Callback function for epub scheme requests
+
+        Finish a WebKit2.URISchemeRequest by setting the contents of the request
+        and its mime type.
+
+        Args:
+            request (WebKit2.URISchemeRequest)
+        """
+        if not self.doc:
+            return
+
+        uri = request.get_uri()
+        logger.info('Resource request:' + uri)
+        try:
+            path, fragment = self.get_path_fragment(uri)
+            if self.jump_to_path_fragment(path, fragment):
+                return
+        except BookError as e:
+            error_str = str(e)
+            logger.error('Could not get resource:' + error_str)
+            request.finish_error(GLib.Error(error_str))
+        else:
+            bytes = self.doc.get_resource(path)
+            gbytes = GLib.Bytes(bytes)
+            stream = Gio.MemoryInputStream.new_from_bytes(gbytes)
+            stream_length = gbytes.get_size()
+            mime = self.doc.get_resource_mime(path)
+
+            request.finish(stream, stream_length, mime)
+
+    def on_decide_policy(self, web_view, decision, decision_type):
+        """Decide what to do when clicked on link
+
+        Args:
+            web_view (WebKit2.WebView)
+            decision (WebKit2.PolicyDecision)
+            decision_type (WebKit2.PolicyDecisionType)
+
+        Returns:
+            True to stop other handlers from being invoked for the event.
+            False to propagate the event further.
+        """
+        if decision_type is WebKit2.PolicyDecisionType.RESPONSE:
+            response = WebKit2.ResponsePolicyDecision.get_response(decision)
+            uri = response.get_uri()
+            ctx = Gio.AppLaunchContext.new()
+            Gio.AppInfo.launch_default_for_uri(uri, ctx)
+            logger.info('URI clicked:' + uri)
+            decision.ignore()
+            return True
 
     def get_doc(self):
-        return self.__doc
+        return self.doc
 
     def set_doc(self, gfile):
-        """ Receives a GFile object and uses Gepub.Doc to parse it.
+        """Create an Epub object using the path obtained from gfile
+
+        Calls prepare_book() when done.
 
         Parameters:
-            GFile
+            gfile (Gio.File)
+
+        Raises:
+            BookError
         """
         try:
             path = gfile.get_path()
             if not path:
                 raise BookError('Empty path!')
 
+            logger.info('Opening:' + path)
+
             doc = Epub(path)
         except BookError as e:
             raise
         else:
-            if self.__doc == doc:
+            if self.doc == doc:
                 return
 
-            if self.__doc is not None:
-                self.__doc.disconnect_by_func(self.reload_current_chapter)
+            if self.doc is not None:
+                self.doc.disconnect(self.on_reload_chapter_id)
 
-            logger.info('Opening {0}'.format(path))
-            self.__doc = doc
+            self.doc = doc
             self.prepare_book()
 
     def prepare_book(self):
-        """ Refreshing relevant variables for the book.
+        """Set relevant variables for the book
+
+        Connect to Epub 'page' property signal.
         """
-        logger.info('Preparing book with settings')
-        # Identifier in settings
-        if self.__doc.identifier:
-            self.__identifier = self.__doc.identifier
+        if self.doc.identifier:
+            self.identifier = self.doc.identifier
         else:
-            self.__identifier = self.get_author() + self.get_title()
+            self.identifier = self.get_author() + self.get_title()
 
-        # Add book to settings
-        if not self.__settings.get_book(self.__identifier):
-            self.__settings.add_book(self.__identifier)
+        if not self.settings.get_book(self.identifier):
+            self.settings.add_book(self.identifier)
 
-        # Chapter
-        chapter = self.__settings.get_chapter(self.__identifier)
+        # Chapter to resume from
+        chapter = self.settings.get_chapter(self.identifier)
         self.set_chapter(chapter)
-        self.reload_current_chapter()
+        self.reload_chapter()
 
-        # Signal: GObject.Object.signals.notify
-        self.__doc.connect('notify::page', self.reload_current_chapter)
+        if self.on_reload_chapter_id is None:
+            self.on_reload_chapter_id = self.doc.connect('notify::page',
+                                                         self.reload_chapter)
 
-    def reload_current_chapter(self, unused_a=None, unused_b=None):
-        """ Reload current chapter in WebView. This function is
-        connected to every page switch.
+        if self.on_load_set_pos_id is None:
+            position = self.settings.get_position(self.identifier)
+            self.on_load_set_pos_id = self.connect('load-changed',
+                                                   self.on_load_set_pos,
+                                                   position)
+
+    def reload_chapter(self, epub=None, paramspec=None):
+        """Use Epub's page number to retrieve the resource and load it into view.
+
+        Args:
+            epub (GObject.Object)
+            paramspec (GObject.ParamSpec)
         """
-        logger.info('Reloading: {0}'.format(self.get_current_path()))
-        gbytes = self.__doc.get_current_with_epub_uris()
-        mime = self.__doc.get_current_mime()
+        logger.info('Reloading:' + self.doc.get_current_path())
+
+        bytes = self.doc.get_current_with_epub_uris()
+        gbytes = GLib.Bytes(bytes)
+        mime = self.doc.get_current_mime()
         encoding = 'UTF-8'
         base_uri = None
 
-        self.load_bytes(gbytes,
-                        mime,
-                        encoding,
-                        base_uri)
-
-    def on_epub_scheme(self, request):
-        """ Callback function. Everytime something is requested. It uses the
-        WebKit2.URISchemeRequest to find out the path and get it.
-
-        Finish a WebKit2.URISchemeRequest by setting the contents of the request
-        and its mime type.
-
-        Parameters:
-            request (WebKit2.URISchemeRequest)
-        """
-        logger.info('Resolving epub scheme')
-        if not self.__doc:
-            return
-
-        uri = request.get_uri()
-        logger.info('Resource request: {}'.format(uri))
-
-        try:
-            path, fragment = self._get_path_fragment(uri)
-            if self.jump_to_path_fragment(path, fragment):
-                return
-        except BookError as e:
-            logger.error('Could not get resource: {}'.format(e))
-            request.finish_error(GLib.Error(str(e)))
-            return
-
-        gbytes = self.__doc.get_resource(path)
-        stream = Gio.MemoryInputStream.new_from_bytes(gbytes)
-        stream_length = gbytes.get_size()
-        mime = self.__doc.get_resource_mime(path)
-
-        request.finish(stream, stream_length, mime)
-
-    def _get_path_fragment(self, _path):
-        path = ''
-        fragment = ''
-
-        if _path:
-            soup_uri = Soup.URI.new(_path)
-            path = soup_uri.get_path()[1:]
-            fragment = soup_uri.get_fragment() or ''
-
-        return [path, fragment]
-
-    def jump_to_path_fragment(self, path, fragment):
-        if not path:
-            path = self.get_current_path()
-
-        if not self.__doc.is_navigation_type(path):
-            return False
-
-        current = self.get_current_path()
-        if path == current:
-            logger.info('Same chapter')
-            if fragment:
-                self.set_scroll_to_fragment(fragment)
-            else:
-                self.set_position(0)
-            return True
-        else:
-            logger.info('Changing chapter')
-            self.__doc.set_page_by_path(path)
-            if fragment:
-                self.connect('load-changed', self.on_jump_to_path_fragment, fragment)
-            return True
-
-    def on_jump_to_path_fragment(self, webview, load_event, fragment):
-        if load_event is WebKit2.LoadEvent.FINISHED:
-            self.set_scroll_to_fragment(fragment)
+        self.load_bytes(gbytes, mime, encoding, base_uri)
+        self.__page_turning = True
 
     def on_load_change(self, webview, load_event):
-        if load_event is WebKit2.LoadEvent.FINISHED:
-            logger.info('Load event finished')
+        """If the load event has finished, call setup_view()
+
+        Args:
+            webview (WebKit2.WebView)
+            load_event (WebKit2.LoadEvent)
+        """
+        if load_event is WebKit2.LoadEvent.STARTED:
+            logger.info('LoadEvent:STARTED')
+        elif load_event is WebKit2.LoadEvent.COMMITTED:
+            logger.info('LoadEvent:COMMITTED')
+        elif load_event is WebKit2.LoadEvent.FINISHED:
+            logger.info('LoadEvent:FINISHED')
             self.setup_view()
-            if self.__change_by_search:
-                if self.__is_match_prev:
-                    self.find_prev()
-                else:
-                    self.find_next()
-                self.__change_by_search = False
-            if not self.__connected_on_size:
-                self.__connected_on_size = self.connect('size-allocate',
-                                                        self.on_size_change)
-            if self.__chapter_pos is not None:
-                self.__chapter_pos = 0
+            self.__page_turning = False
+
+            if not self.on_resize_id:
+                self.on_resize_id = self.connect('size-allocate', self.on_resize)
 
     def setup_view(self):
-        """ Sets up the WebView content. It adds styles to the body itself and
-        to a child element of body.
-
-        This function is called at every page switch or settings change.
-        """
-        gdk_color = Gdk.Color.parse(self.__settings.color_bg)
+        """Run javascript with styles"""
+        gdk_color = Gdk.Color.parse(self.settings.color_bg)
         gdk_rgba = Gdk.RGBA.from_color(gdk_color[1])
         self.set_background_color(gdk_rgba)
-        self.__wk_settings.set_property('default-font-size', self.__settings.fontsize)
 
-        bodyjs = BODY_JS.format(bg=self.__settings.color_bg,
-                                 fg=self.__settings.color_fg)
+        web_settings = self.get_settings()
+        web_settings.set_default_font_size(self.settings.fontsize)
 
-        wrapperjs = WRAPPER_JS.format(mg=self.__settings.margin,
-                                       bg=self.__settings.color_bg,
-                                       fg=self.__settings.color_fg,
-                                       fs0=self.__settings.fontfamily,
-                                       fs1=self.__settings.fontweight,
-                                       fs2=self.__settings.fontstyle,
-                                       fs3=self.__settings.fontstretch,
-                                       fs4=self.__settings.fontsize,
-                                       lh=self.__settings.lineheight)
+        bodyjs = BODY_JS.format(bg=self.settings.color_bg,
+                                fg=self.settings.color_fg)
+
+        wrapperjs = WRAPPER_JS.format(mg=self.settings.margin,
+                                      bg=self.settings.color_bg,
+                                      fg=self.settings.color_fg,
+                                      fs0=self.settings.fontfamily,
+                                      fs1=self.settings.fontweight,
+                                      fs2=self.settings.fontstyle,
+                                      fs3=self.settings.fontstretch,
+                                      fs4=self.settings.fontsize,
+                                      lh=self.settings.lineheight)
 
         logger.info('Running view javascript...')
         self.run_javascript(bodyjs)
         self.run_javascript(wrapperjs)
-        if self.__settings.paginate:
+        if self.settings.paginate:
             self.run_javascript(COL_JS)
+        else:
+            self.run_javascript(COL_JS_REMOVE)
 
-        self.recalculate_content(True)
-
-    def on_size_change(self, webview, gdk_rectangle):
-        position = self.get_position()
-        self.recalculate_content(False, position)
-
-    def recalculate_content(self, adjust, position=None):
-        self.__view_width = self.get_allocation().width
-        logger.info('View width: {0}'.format(self.__view_width))
-
-        if self.__settings.paginate:
-            dbus_args = GLib.Variant("(ib)", (self.get_page_id(),
-                                              self.__settings.paginate))
-            self.__helper.call('GetScrollLength',
-                               dbus_args,
-                               self.on_recalculate_content,
-                               self.get_page_id(),
-                               adjust,
-                               position)
-
-    def on_recalculate_content(self, source, result, adjust, position):
-        """Obtain document length
+    def on_load_set_pos(self, webview, load_event, position):
+        """If the load event has finished, scroll to position
 
         Args:
-            source (GObject.Object)
-            result (Gio.AsyncResult)
-            adjust (bool)
-            position (float)
+            webview (WebKit2.WebView)
+            load_event (WebKit2.LoadEvent)
         """
-        try:
-            self.__scroll_width = source.call_finish(result)[0]
-            logger.info('Scroll width: {0}'.format(self.__scroll_width))
-        except Exception as e:
-            logger.error('on_get_width: {}'.format(e))
+        if load_event is WebKit2.LoadEvent.FINISHED:
+            logger.info('Setting position on load')
+            self.set_scroll_position(position)
+            self.disconnect(self.on_load_set_pos_id)
+            self.on_load_set_pos_id = None
 
-        if self.__chapter_pos is None:
-            position = self.__settings.get_position(self.__identifier)
-            self.__chapter_pos = position * self.__scroll_width / 100
+    def on_load_by_fragment(self, webview, load_event, fragment):
+        """If the load event has finished, scroll to fragment
 
-        # When doing a page_prev, don't jump to the beginning of the chapter,
-        # instead show the end of the chapter. But only if it's long enough.
-        if self.__is_page_prev:
-            logger.info('Page prev: Set chapter position accordingly')
-            if self.__scroll_width > self.__view_width:
-                self.__chapter_pos = self.__scroll_width - self.__view_width
+        Args:
+            webview (WebKit2.WebView)
+            load_event (WebKit2.LoadEvent)
+            fragment (str)
+        """
+        if load_event is WebKit2.LoadEvent.FINISHED:
+            self.set_scroll_to_fragment(fragment)
+            self.disconnect(self.on_load_by_fragment_id)
+            self.on_load_by_fragment_id = None
+
+    def on_load_by_search(self, webview, load_event):
+        """If the load event has finished, find the next or previous match
+
+        Args:
+            webview (WebKit2.WebView)
+            load_event (WebKit2.LoadEvent)
+        """
+        if load_event is WebKit2.LoadEvent.FINISHED:
+            if self.__is_match_prev:
+                self.find_prev()
             else:
-                self.__chapter_pos = 0
-            self.__is_page_prev = False
+                self.find_next()
+            self.disconnect(self.on_load_by_search_id)
+            self.on_load_by_search_id = None
 
-        if self.__chapter_pos:
-            if adjust:
-                self.adjust_chapter_pos()
-            else:
-                self.adjust_chapter_pos_on_size_change(position)
-        else:
-             self.__settings.save_pos(self.__identifier,
-                                      self.get_chapter(),
-                                      self.get_position())
+    def on_resize(self, webview, gdk_rectangle):
+        """Call position function on every size change
 
-    def adjust_chapter_pos_on_size_change(self, position):
-        """Adjust position according to percentage"""
-        self.set_position(position)
+        Args:
+            webview (WebKit2.WebView)
+            gdk_rectangle (Gdk.Rectangle)
+        """
+        position = self.settings.get_position(self.identifier)
+        self.set_scroll_position(position)
 
     def get_scroll_position(self):
+        """Start DBUS call to obtain scroll position"""
         dbus_args = GLib.Variant("(ib)", (self.get_page_id(),
-                                          self.__settings.paginate))
-        self.__helper.call('GetScrollPosition',
-                           dbus_args,
-                           self.on_get_scroll_position,
-                           self.get_page_id())
+                                          self.settings.paginate))
+        self.dbus_helper.call('GetScrollPosition',
+                              dbus_args,
+                              self.on_get_scroll_position,
+                              self.get_page_id())
 
     def on_get_scroll_position(self, source, result):
-        """Obtain scroll position and call adjust function
+        """Obtain scroll position and save it
 
         Args:
             source (GObject.Object)
@@ -484,205 +556,339 @@ class Book(WebKit2.WebView):
         try:
             position = source.call_finish(result)[0]
         except Exception as e:
-            logger.error('on_get_scroll_position: {}'.format(e))
-
-        if position != self.__chapter_pos:
-            self.__chapter_pos = position
-            self.adjust_chapter_pos()
-
-    def adjust_chapter_pos(self):
-        """ Position adjustment function.
-
-        When the view is paginated, adjust chapter position given an arbitrary
-        number, i.e. go to the next page if the position given is closer to it.
-        """
-        logger.info('Adjusting position value')
-        page = self.__chapter_pos // self.__view_width
-        next = page + 1
-
-        page_pos = self.__view_width * page
-        next_pos = self.__view_width * next
-
-        d1 = self.__chapter_pos - page_pos
-        d2 = next_pos - self.__chapter_pos
-
-        # The less, the better...
-        if d1 < d2:
-            self.__chapter_pos = page_pos
+            logger.error('On get position:' + str(e))
         else:
-            self.__chapter_pos = next_pos
-
-        # Alright, we are good to go.
-        self.set_scroll_position(self.__chapter_pos)
+            self.settings.save_pos(self.identifier,
+                                   self.get_chapter(),
+                                   position)
 
     def set_scroll_position(self, position):
-        dbus_args = GLib.Variant("(ibi)", (self.get_page_id(),
-                                           self.__settings.paginate,
+        """Start DBUS call to set scroll position
+
+        Args:
+            position (float)
+        """
+        dbus_args = GLib.Variant("(ibd)", (self.get_page_id(),
+                                           self.settings.paginate,
                                            position))
-        self.__helper.call('SetScrollPosition',
-                           dbus_args,
-                           self.on_set_scroll_position,
-                           self.get_page_id())
+        self.dbus_helper.call('SetScrollPosition',
+                              dbus_args,
+                              self.on_set_scroll_position,
+                              self.get_page_id())
 
     def on_set_scroll_position(self, source, result):
-        """Obtain and save scroll position
+        """Obtain result to set position
 
         Args:
             source (GObject.Object)
             result (Gio.AsyncResult)
         """
         try:
-            self.__chapter_pos = source.call_finish(result)[0]
-            logger.info('Scroll position: {0}'.format(self.get_position()))
-            self.__settings.save_pos(self.__identifier,
-                                     self.get_chapter(),
-                                     self.get_position())
+            position_changed = source.call_finish(result)[0]
         except Exception as e:
-            logger.error('on_pagination_scrollto: {}'.format(e))
+            logger.error('On set position:' + str(e))
+        else:
+            if position_changed:
+                self.get_scroll_position()
+            else:
+                logger.warning('Could not set position:Unknown')
 
     def set_scroll_to_fragment(self, fragment):
+        """Start DBUS call to set scroll position to an element id
+
+        Args:
+            fragment (str)
+        """
         dbus_args = GLib.Variant("(ibs)", (self.get_page_id(),
-                                           self.__settings.paginate,
+                                           self.settings.paginate,
                                            fragment))
-        self.__helper.call('SetScrollToId',
-                           dbus_args,
-                           self.on_set_scroll_to_fragment,
-                           self.get_page_id())
+        self.dbus_helper.call('SetScrollToFragment',
+                              dbus_args,
+                              self.on_set_scroll_to_fragment,
+                              self.get_page_id())
 
     def on_set_scroll_to_fragment(self, source, result):
-        """Obtain fragment position
+        """Obtain result to fragment position
 
         Args:
             source (GObject.Object)
             result (Gio.AsyncResult)
         """
         try:
-            position = source.call_finish(result)[0]
-            logger.info('Fragment position: {0}'.format(position))
+            position_changed = source.call_finish(result)[0]
         except Exception as e:
-            logger.error('on_set_scroll_to_fragment: {}'.format(e))
-
-        if position != self.__chapter_pos:
-            self.__chapter_pos = position
-            self.adjust_chapter_pos()
-
-    def get_paginate(self):
-        return self.__settings.paginate
-
-    def set_paginate(self, b):
-        self.__settings.paginate = b
-        self.reload_current_chapter()
+            logger.error('Scroll to fragment:' + str(e))
+        else:
+            if position_changed:
+                self.get_scroll_position()
+            else:
+                logger.warning('Could not set position to fragment:Unknown')
 
     def page_next(self):
-        self.__chapter_pos = self.__chapter_pos + self.__view_width
+        """Start DBUS call to change position to next page"""
+        if not self.doc:
+            return
 
-        _smaller_than_view =  (self.__scroll_width - self.__chapter_pos) < self.__view_width
+        if (self.on_load_set_pos_id or
+            self.on_load_by_fragment_id or
+            self.on_load_by_search_id):
+            return
 
-        if _smaller_than_view and self.__view_width > 800:
-            _limit = self.__scroll_width - int(self.__view_width / 2)
+        if self.__page_turning:
+            return
+
+        dbus_args = GLib.Variant("(ib)", (self.get_page_id(),
+                                          self.settings.paginate))
+        self.dbus_helper.call('ScrollNext',
+                              dbus_args,
+                              self.on_page_next,
+                              self.get_page_id())
+
+    def on_page_next(self, source, result):
+        """Obtain result to page next position
+
+        Args:
+            source (GObject.Object)
+            result (Gio.AsyncResult)
+        """
+        try:
+            position_changed = source.call_finish(result)[0]
+        except Exception as e:
+            logger.error('Page Next:' + str(e))
         else:
-            _limit = self.__scroll_width - self.__view_width
-
-        if self.__chapter_pos > _limit:
-            self.__doc.go_next()
-        else:
-            self.set_scroll_position(self.__chapter_pos)
+            if position_changed:
+                self.get_scroll_position()
+            else:
+                try:
+                    self.chapter_next()
+                except BookError as e:
+                    pass
+                else:
+                    if self.on_load_set_pos_id is None:
+                        position = 0.0
+                        self.on_load_set_pos_id = self.connect('load-changed',
+                                                             self.on_load_set_pos,
+                                                             position)
 
     def page_prev(self):
-        if self.__chapter_pos == 0 and self.get_chapter() == 0:
+        """Start DBUS call to change position to previous page"""
+        if not self.doc:
             return
 
-        if self.__is_page_prev:
+        if (self.on_load_set_pos_id or
+            self.on_load_by_fragment_id or
+            self.on_load_by_search_id):
             return
 
-        self.__chapter_pos = self.__chapter_pos - self.__view_width
+        if self.__page_turning:
+            return
 
-        if self.__chapter_pos < 0:
-            self.__is_page_prev = True
-            self.__doc.go_prev()
+        dbus_args = GLib.Variant("(ib)", (self.get_page_id(),
+                                          self.settings.paginate))
+        self.dbus_helper.call('ScrollPrev',
+                              dbus_args,
+                              self.on_page_prev,
+                              self.get_page_id())
+
+    def on_page_prev(self, source, result):
+        """Obtain result to page previous position
+
+        Args:
+            source (GObject.Object)
+            result (Gio.AsyncResult)
+        """
+        try:
+            position_changed = source.call_finish(result)[0]
+        except Exception as e:
+            logger.error('Page Previous:' + str(e))
         else:
-            self.set_scroll_position(self.__chapter_pos)
+            if position_changed:
+                self.get_scroll_position()
+            else:
+                try:
+                    self.chapter_prev()
+                except BookError as e:
+                    pass
+                else:
+                    if self.on_load_set_pos_id is None:
+                        position = 100.0
+                        self.on_load_set_pos_id = self.connect('load-changed',
+                                                             self.on_load_set_pos,
+                                                             position)
 
-    def get_position(self):
-        if not self.__chapter_pos:
-            return 0
+    def adjust_scroll_position(self):
+        """Start DBUS call to adjust scroll position"""
+        dbus_args = GLib.Variant("(ib)", (self.get_page_id(),
+                                          self.settings.paginate))
+        self.dbus_helper.call('AdjustScrollPosition',
+                              dbus_args,
+                              self.on_adjust_scroll_position,
+                              self.get_page_id())
 
-        return self.__chapter_pos / self.__scroll_width * 100
+    def on_adjust_scroll_position(self, source, result):
+        """Obtain result to adjust scroll position
 
-    def set_position(self, p):
-        if not self.__scroll_width:
-            return
-
-        self.__chapter_pos = int(p * self.__scroll_width / 100)
-        self.adjust_chapter_pos()
-
-    def get_chapter_length(self):
-        return self.__scroll_width
-
-    def get_current_path(self):
-        return self.__doc.get_current_path()
+        Args:
+            source (GObject.Object)
+            result (Gio.AsyncResult)
+        """
+        try:
+            position_changed = source.call_finish(result)[0]
+        except Exception as e:
+            logger.error('Adjust scroll position:' + str(e))
+        else:
+            if position_changed:
+                self.get_scroll_position()
 
     def get_chapter(self):
-        return self.__doc.get_page()
+        """Returns an int as chapter"""
+        if self.doc:
+            return self.doc.get_page()
+        else:
+            return None
 
-    def set_chapter(self, c):
-        self.__doc.set_page(c)
+    def set_chapter(self, chapter):
+        """Set current chapter
+
+        Args:
+            chapter (int)
+        """
+        if self.doc:
+            self.doc.set_page(chapter)
 
     def chapter_next(self):
-        self.__doc.go_next()
+        if self.doc:
+            try:
+                self.doc.go_next()
+            except BookError as e:
+                raise e
 
     def chapter_prev(self):
-        self.__doc.go_prev()
+        if self.doc:
+            try:
+                self.doc.go_prev()
+            except BookError as e:
+                raise e
 
-    def set_settings(self, _settings):
-        self.__settings = _settings
-        self.setup_view()
+    def get_current_path(self):
+        if self.doc:
+            return self.doc.get_current_path()
+        else:
+            return None
+
+    def refresh_view(self):
+        """Start the restyling of current chapter"""
+        if self.doc:
+            self.setup_view()
+            position = self.settings.get_position(self.identifier)
+            self.set_scroll_position(position)
 
     def get_title(self):
-        return self.__doc.title
+        if self.doc:
+            return self.doc.title
+        else:
+            return None
 
     def get_author(self):
-        creator_list = self.__doc.get_metadata('creator')
-        if creator_list:
-            return creator_list[0]
+        if self.doc:
+            creator_list = self.doc.get_metadata('creator')
+            if creator_list:
+                return creator_list[0]
+        else:
+            return None
 
     def get_path(self):
-        return self.__doc.path
+        if self.doc:
+            return self.doc.path
+        else:
+            return None
 
     def find_text(self, search_text):
+        """Start search in webview and document. Connect search signals.
+
+        Args:
+            search_text (str)
+        """
+        if not self.doc:
+            return
+
         if search_text:
+            web_find_controller = self.get_find_controller()
+            if self.on_text_found_id is None:
+                self.on_text_found_id = web_find_controller.connect('found-text',
+                                                                    self.on_found_text)
+            if self.on_text_not_found_id is None:
+                self.on_text_not_found_id = web_find_controller.connect('failed-to-find-text',
+                                                                        self.on_text_not_found)
             max_match_count = 1000
-            self.__wk_find_controller.count_matches(search_text,
-                                                    WebKit2.FindOptions.CASE_INSENSITIVE,
-                                                    max_match_count)
-            self.__matches_list = self.__doc.find_text(search_text)
+            web_find_controller.count_matches(search_text,
+                                              WebKit2.FindOptions.CASE_INSENSITIVE,
+                                              max_match_count)
+            self.__matches_list = self.doc.find_text(search_text)
 
     def find_text_finish(self):
-        self.__wk_find_controller.search_finish()
-        self.__matches_list = []
+        """Clear the search in webview and disconnect signals."""
+        if not self.__matches_list:
+            return
+
+        web_find_controller = self.get_find_controller()
+        web_find_controller.search_finish()
+        if self.on_text_found_id:
+            web_find_controller.disconnect(self.on_text_found_id)
+            self.on_text_found_id = None
+        if self.on_text_not_found_id:
+            web_find_controller.disconnect(self.on_text_not_found_id)
+            self.on_text_not_found_id = None
+        self.__matches_list = None
 
     def find_next(self):
-        if self.__matches_list:
-            self.__wk_find_controller.search_next()
-            self.__is_match_prev = False
+        if not self.doc:
+            return
+
+        if not self.__matches_list:
+            return
+
+        web_find_controller = self.get_find_controller()
+        web_find_controller.search_next()
+        self.__is_match_prev = False
+        self.adjust_scroll_position()
 
     def find_prev(self):
-        if self.__matches_list:
-            self.__wk_find_controller.search_previous()
-            self.__is_match_prev = True
+        if not self.doc:
+            return
 
-    def on_found_text(self, find_controller, match_count):
+        if not self.__matches_list:
+            return
+
+        web_find_controller = self.get_find_controller()
+        web_find_controller.search_previous()
+        self.__is_match_prev = True
+        self.adjust_scroll_position()
+
+    def on_found_text(self, web_find_controller, match_count):
+        """Fix position because web_find_controller centers the match.
+
+        Args:
+            web_find_controller (WebKit2.FindController)
+            match_count (int)
+        """
         self.get_scroll_position()
 
-    def on_failed_to_find_text(self, find_controller):
-        search_text = find_controller.get_search_text()
+    def on_text_not_found(self, web_find_controller):
+        """Change to chapter that contains a match when not match is found on
+        WebView on search, next or previous.
+
+        Args:
+             web_find_controller (WebKit2.FindController)
+        """
+        search_text = web_find_controller.get_search_text()
         if not search_text or not self.__matches_list:
             return
 
         chapter = self.get_chapter()
         path = None
 
-        # FIXME: find_controller sometimes misses a match that is in view.
+        # FIXME: WebKit2.FindController sometimes misses a match in WebView.
         # I don't know if it's because it only searches forward by default.
 
         if self.__is_match_prev:
@@ -697,8 +903,15 @@ class Book(WebKit2.WebView):
                 path = ordered_matches[i][0]
                 break
 
-        if path is not None and path != self.get_current_path():
-            self.__doc.set_page_by_path(path)
-            self.__change_by_search = True
+        if path is not None and path != self.doc.get_current_path():
+            self.doc.set_page_by_path(path)
+            if self.on_load_by_search_id is None:
+                if self.__is_match_prev and self.on_load_set_pos_id is None:
+                    position = 100.0
+                    self.on_load_set_pos_id = self.connect('load-changed',
+                                                           self.on_load_set_pos,
+                                                           position)
+                self.on_load_by_search_id = self.connect('load-changed',
+                                                         self.on_load_by_search)
         else:
             logger.info('No coincidences in epub')

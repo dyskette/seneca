@@ -71,8 +71,10 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         self.book_toc = Toc(self.book, self.toc_treeview, self.toc_treestore)
         self.gtk_settings = Gtk.Settings.get_default()
 
-        variant = GLib.Variant('s', self.settings.color)
-        color_action = Gio.SimpleAction.new_stateful('color', variant.get_type(), variant)
+        color_variant = GLib.Variant.new_string(self.settings.color)
+        color_action = Gio.SimpleAction.new_stateful('color',
+                                                     color_variant.get_type(),
+                                                     color_variant)
         color_action.connect('change-state', self.change_color)
         self.add_action(color_action)
 
@@ -176,13 +178,13 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         self.change_window_color(color)
 
         self.settings.color = color
-        self.book.set_settings(self.settings)
+        self.book.refresh_view()
 
         action.set_state(value)
 
     def change_fontsize(self, fontsize):
         self.settings.fontsize = fontsize
-        self.book.set_settings(self.settings)
+        self.book.refresh_view()
 
         self.refresh_fontsize_label()
         self.refresh_font_button()
@@ -191,7 +193,7 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         lineheight = float(format(lineheight, '1.2f'))
 
         self.settings.lineheight = lineheight
-        self.book.set_settings(self.settings)
+        self.book.refresh_view()
 
         self.refresh_lineheight_label()
 
@@ -206,7 +208,7 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         self.settings.fontstretch = css_font['stretch']
         self.settings.fontsize = css_font['size']
 
-        self.book.set_settings(self.settings)
+        self.book.refresh_view()
 
         self.refresh_fontsize_label()
 

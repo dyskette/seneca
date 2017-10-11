@@ -403,12 +403,14 @@ class Epub(GObject.GObject):
 
     def go_prev(self):
         if self.__current == 0:
-            return
+            raise BookError('Value out of range: 0 to {0}'.format(len(self.spine)))
+
         self.page = self.__current - 1
 
     def go_next(self):
         if self.__current == len(self.spine) - 1:
-            return
+            raise BookError('Value out of range: 0 to {0}'.format(len(self.spine)))
+
         self.page = self.__current + 1
 
     def get_page(self):

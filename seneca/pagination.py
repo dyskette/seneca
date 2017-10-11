@@ -22,7 +22,8 @@ logger = logging.getLogger(name='webextensions.pagination')
 import gi
 from gi.repository import Gio, GLib
 
-# Shamelessly copied from GNOME Music
+SENECA_INNER_WRAPPER = '<div id="SenecaInnerWrapper">\n{}\n</div>'
+
 class Server:
 
     def __init__(self, con, path):
@@ -76,27 +77,37 @@ class Paginate(Server):
     "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
     <node>
         <interface name="com.github.dyskette.Seneca.Paginate">
-            <method name="GetScrollLength">
-                <arg name="page_id" type="i" direction="in" />
-                <arg name="paginate" type="b" direction="in" />
-                <arg name="result" type="i" direction="out" />
-            </method>
             <method name="GetScrollPosition">
                 <arg name="page_id" type="i" direction="in" />
                 <arg name="paginate" type="b" direction="in" />
-                <arg name="result" type="i" direction="out" />
+                <arg name="result" type="d" direction="out" />
             </method>
             <method name="SetScrollPosition">
                 <arg name="page_id" type="i" direction="in" />
                 <arg name="paginate" type="b" direction="in" />
-                <arg name="position" type="i" direction="in" />
-                <arg name="result" type="i" direction="out" />
+                <arg name="position" type="d" direction="in" />
+                <arg name="result" type="b" direction="out" />
             </method>
-            <method name="SetScrollToId">
+            <method name="SetScrollToFragment">
                 <arg name="page_id" type="i" direction="in" />
                 <arg name="paginate" type="b" direction="in" />
                 <arg name="elem_id" type="s" direction="in" />
-                <arg name="result" type="i" direction="out" />
+                <arg name="result" type="b" direction="out" />
+            </method>
+            <method name="ScrollNext">
+                <arg name="page_id" type="i" direction="in" />
+                <arg name="paginate" type="b" direction="in" />
+                <arg name="result" type="b" direction="out" />
+            </method>
+            <method name="ScrollPrev">
+                <arg name="page_id" type="i" direction="in" />
+                <arg name="paginate" type="b" direction="in" />
+                <arg name="result" type="b" direction="out" />
+            </method>
+            <method name="AdjustScrollPosition">
+                <arg name="page_id" type="i" direction="in" />
+                <arg name="paginate" type="b" direction="in" />
+                <arg name="result" type="b" direction="out" />
             </method>
         </interface>
     </node>
@@ -108,13 +119,13 @@ class Paginate(Server):
         Args:
             extension (WebKit2WebExtension.WebExtension)
         """
+        logging.basicConfig(level=level)
         self.extension = None
         self.bus_conn = None
         self.bus_path = '/com/github/dyskette/Seneca/Paginate'
         self.bus_name = 'com.github.dyskette.Seneca.Paginate'
         self.page_bus_name = None
-        logging.basicConfig(level=level)
-        logger.info('Class paginate init')
+
         extension.connect('page-created', self.on_page_created)
 
     def on_page_created(self, extension, web_page):
@@ -138,39 +149,34 @@ class Paginate(Server):
                                            None,
                                            None)
             Server.__init__(self, self.bus_conn, self.bus_path)
+            logger.info('Connection ready!')
+        else:
+            logger.warning('There exists a connection already!')
 
         self.extension = extension
+        web_page.connect('document-loaded', self.on_document_loaded)
 
-    def GetScrollLength(self, page_id, paginate):
-        """Return width or height
+    def on_document_loaded(self, web_page):
+        """The DOM has loaded.
 
         Args:
-            page_id (int)
-            paginate (bool)
-
-        Returns:
-            An int representing the internal width or height of the document
+            web_page (WebKit2WebExtension.WebPage)
         """
-        web_page = self.extension.get_page(page_id)
-        dom_doc = web_page.get_dom_document()
-        dom_elem = dom_doc.get_document_element()
+        logger.info('DocumentLoaded:Set inner wrapper')
+        document = web_page.get_dom_document()
 
-        if paginate:
-            length = dom_elem.get_scroll_width()
-        else:
-            length = dom_elem.get_scroll_height()
+        body = document.get_body()
+        body.set_inner_html(SENECA_INNER_WRAPPER.format(body.get_inner_html()))
 
-        return length
-
-    def GetScrollPosition(self, page_id, paginate):
-        """Return scroll x
+    def get_position(self, page_id, paginate):
+        """Get scroll_x if paginate or scroll_y otherwise
 
         Args:
             page_id (int)
             paginate (bool)
 
         Returns:
-            An int representing the current horizontal position
+            An int representing the current scroll position
         """
         web_page = self.extension.get_page(page_id)
         dom_doc = web_page.get_dom_document()
@@ -183,22 +189,21 @@ class Paginate(Server):
 
         return position
 
-    def SetScrollPosition(self, page_id, paginate, position):
+    def set_position(self, page_id, paginate, position):
         """Set arbitrary scroll position
 
         Args:
             page_id (int)
             paginate (bool)
-            position (int)
+            position (float)
 
         Returns:
-            An int representing the new position in the document
+            An int representing the new position
         """
         web_page = self.extension.get_page(page_id)
         dom_doc = web_page.get_dom_document()
         dom_win = dom_doc.get_default_view()
 
-        position = float(position)
         if paginate:
             dom_win.scroll_to(position, 0.0)
             position_new = dom_win.get_scroll_x()
@@ -208,7 +213,125 @@ class Paginate(Server):
 
         return position_new
 
-    def SetScrollToId(self, page_id, paginate, elem_id):
+    def get_doc_length(self, page_id, paginate):
+        """Return scroll_width if paginate or scroll_height otherwise
+
+        Args:
+            page_id (int)
+            paginate (bool)
+
+        Returns:
+            A float representing the length of the document
+        """
+        web_page = self.extension.get_page(page_id)
+        dom_doc = web_page.get_dom_document()
+        dom_elem = dom_doc.get_document_element()
+
+        if paginate:
+            length = dom_elem.get_scroll_width()
+        else:
+            length = dom_elem.get_scroll_height()
+
+        return float(length)
+
+    def get_view_length(self, page_id, paginate):
+        """Return width if paginate or height otherwise
+
+        Args:
+            page_id (int)
+            paginate (bool)
+
+        Returns:
+            An int representing the length of the view
+        """
+        web_page = self.extension.get_page(page_id)
+        dom_doc = web_page.get_dom_document()
+        dom_win = dom_doc.get_default_view()
+
+        if paginate:
+            length = dom_win.get_inner_width()
+        else:
+            length = dom_win.get_inner_height()
+
+        return length
+
+    def adjust_position(self, position, view_length):
+        """Position adjustment function.
+
+        Go to the next page if the position given is closer to it.
+
+        Args:
+            position (int)
+            view_length (int)
+
+        Returns:
+            position (int)
+        """
+        logger.info('Adjusting position value')
+        page = position // view_length
+        next = page + 1
+
+        page_pos = view_length * page
+        next_pos = view_length * next
+
+        d1 = position - page_pos
+        d2 = next_pos - position
+
+        # The less, the better...
+        if d1 < d2:
+            position = page_pos
+        else:
+            position = next_pos
+
+        return position
+
+    def GetScrollPosition(self, page_id, paginate):
+        """Return scroll x or y
+
+        Args:
+            page_id (int)
+            paginate (bool)
+
+        Returns:
+            A float representing the current scroll position
+        """
+        position = self.get_position(page_id, paginate)
+        doc_length = self.get_doc_length(page_id, paginate)
+        return position / doc_length * 100.0
+
+    def SetScrollPosition(self, page_id, paginate, position):
+        """Set arbitrary scroll position
+
+        Args:
+            page_id (int)
+            paginate (bool)
+            position (float) - Percentage
+
+        Returns:
+            A boolean depending if the operation was succesful or not
+        """
+        doc_length = self.get_doc_length(page_id, paginate)
+        view_length = self.get_view_length(page_id, paginate)
+        position = int(position * doc_length / 100.0)
+
+        last_step = doc_length - view_length
+        if position >= last_step:
+            position = last_step
+        elif position <= 0:
+            position = 0
+        else:
+            position = self.adjust_position(position, view_length)
+
+        position_result = self.set_position(page_id, paginate, position)
+
+        if position == position_result:
+            pos_str = str(position_result / doc_length * 100.0)
+            logger.info('Set position result:' + pos_str)
+            return True
+
+        return False
+
+    def SetScrollToFragment(self, page_id, paginate, elem_id):
         """Scroll to element id
 
         Args:
@@ -217,20 +340,122 @@ class Paginate(Server):
             elem_id (str)
 
         Returns:
-            An int representing the new position in the document
+            A boolean depending if the operation was succesful or not
         """
         web_page = self.extension.get_page(page_id)
         dom_doc = web_page.get_dom_document()
-        dom_win = dom_doc.get_default_view()
         dom_elem = dom_doc.get_element_by_id(elem_id)
 
         if not dom_elem:
-            return 0
+            return False
 
-        dom_elem.scroll_into_view_if_needed(True)
         if paginate:
-            position_new = dom_win.get_scroll_x()
+            position_elem = dom_elem.get_offset_left()
         else:
-            position_new = dom_win.get_scroll_y()
+            position_elem = dom_elem.get_offset_top()
 
-        return position_new
+        view_length = self.get_view_length(page_id, paginate)
+        position = (position_elem // view_length) * view_length
+        half_view = view_length // 2
+        if position_elem > position + half_view:
+            position = (position_elem // half_view) * half_view
+
+        position_result = self.set_position(page_id, paginate, position)
+
+        if position == position_result:
+            doc_length = self.get_doc_length(page_id, paginate)
+            pos_str = str(position_result / doc_length * 100.0)
+            logger.info('Fragment position result:' + pos_str)
+            return True
+
+        return False
+
+    def ScrollNext(self, page_id, paginate):
+        """Scroll to next position
+
+         Args:
+            page_id (int)
+            paginate (bool)
+
+        Returns:
+            A boolean depending if the operation was succesful or not
+        """
+        position = self.get_position(page_id, paginate)
+        doc_length = self.get_doc_length(page_id, paginate)
+        view_length = self.get_view_length(page_id, paginate)
+        position = position + view_length
+
+        if position >= doc_length:
+            return False
+
+        last_step = doc_length - view_length
+        if position > last_step:
+            position = last_step
+        else:
+            position = self.adjust_position(position, view_length)
+
+        position_result = self.set_position(page_id, paginate, position)
+
+        if position == position_result:
+            pos_str = str(position_result / doc_length * 100.0)
+            logger.info('Next position result:' + pos_str)
+            return True
+
+        return False
+
+    def ScrollPrev(self, page_id, paginate):
+        """Return scroll x or y
+
+        Args:
+            page_id (int)
+            paginate (bool)
+
+        Returns:
+            A boolean depending if the operation was succesful or not
+        """
+        position = self.get_position(page_id, paginate)
+        doc_length = self.get_doc_length(page_id, paginate)
+        view_length = self.get_view_length(page_id, paginate)
+
+        last_step = (doc_length // view_length - 1) * view_length
+        if position > last_step:
+            position = last_step
+        else:
+            position = position - view_length
+
+        if position < 0:
+            return False
+
+        position = self.adjust_position(position, view_length)
+        position_result = self.set_position(page_id, paginate, position)
+
+        if position == position_result:
+            pos_str = str(position_result / doc_length * 100.0)
+            logger.info('Prev position result:' + pos_str)
+            return True
+
+        return False
+
+    def AdjustScrollPosition(self, page_id, paginate):
+        """Use adjust_position() to fix view positioning.
+
+        Args:
+            page_id (int)
+            paginate (bool)
+
+        Returns:
+            A boolean depending if the operation was succesful or not
+        """
+        position = self.get_position(page_id, paginate)
+        doc_length = self.get_doc_length(page_id, paginate)
+        view_length = self.get_view_length(page_id, paginate)
+
+        position = self.adjust_position(position, view_length)
+        position_result = self.set_position(page_id, paginate, position)
+
+        if position == position_result:
+            pos_str = str(position_result / doc_length * 100.0)
+            logger.info('Adjust position result:' + pos_str)
+            return True
+
+        return False
