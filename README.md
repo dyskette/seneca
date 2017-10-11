@@ -1,6 +1,11 @@
-# Seneca
+# Seneca (in development)
 
-Seneca is a cute epub reader. This is a work in progress, beware of bugs.
+Seneca is an epub reader made to fit in GNOME.
+
+## Screenshot
+
+![](data/screenshots/screenshot1.png)
+![](data/screenshots/screenshot2.png)
 
 ## Installation
 
@@ -23,15 +28,19 @@ seneca
 ## Requirements
 
 For installation:
+- gcc
+- python3
+- pygobject-3.0
+- webkit2gtk-web-extension-4.0
 - meson
 - glib-compile-schemas
 
 For running:
-- Python 3
-- GTK+ 3
-- WebKit2
-- lxml2
+- python3
+- python3-gobject
+- python3-lxml
+- webkit2gtk
 
 ## License
 
-This software is under the GPLv3. See LICENSE.
+This software is under the GPLv3. See [COPYING](COPYING).
