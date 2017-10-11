@@ -103,7 +103,6 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         # Unset webview as a drop destination
         self.book.drag_dest_unset()
 
-        # FIXME: Window raises on drop event. Why?
         self.uri_list = 11
         targets = [Gtk.TargetEntry.new('text/uri-list', 0, self.uri_list)]
         self.grid.drag_dest_set(Gtk.DestDefaults.ALL,
@@ -111,9 +110,11 @@ class ApplicationWindow(Gtk.ApplicationWindow):
                                 Gdk.DragAction.COPY)
         self.grid.connect('drag-data-received', self.on_drag_data_received)
 
+        self.book.connect('key-press-event', self.on_book_key_press_event)
         self.book_view.pack_end(self.book, True, True, 0)
         self.book_view.show_all()
 
+        self.connect('key-press-event', self.on_key_press_event)
         self.connect('size-allocate', self.on_size_allocate)
 
     def open_file(self, _gfile):
@@ -256,12 +257,12 @@ class ApplicationWindow(Gtk.ApplicationWindow):
             self.search_entry.grab_focus()
         else:
             self.book.find_text_finish()
+            self.book.grab_focus()
 
     @GtkTemplate.Callback
     def on_search_changed(self, widget):
         search_text = self.search_entry.get_text()
-        if self.book.get_doc():
-            self.book.find_text(search_text)
+        self.book.find_text(search_text)
 
     @GtkTemplate.Callback
     def on_stop_search(self, widget):
@@ -269,18 +270,72 @@ class ApplicationWindow(Gtk.ApplicationWindow):
 
     @GtkTemplate.Callback
     def on_search_next(self, widget):
-        if self.book.get_doc():
-            self.book.find_next()
+        self.book.find_next()
 
     @GtkTemplate.Callback
     def on_search_prev(self, widget):
-        if self.book.get_doc():
-            self.book.find_prev()
+        self.book.find_prev()
 
     def on_size_allocate(self, window, gdk_rectangle):
         self.settings.maximized = self.is_maximized()
         if not self.is_maximized():
             self.settings.width , self.settings.height = self.get_size()
+
+    def on_book_key_press_event(self, widget, event):
+        """Handles key presses on webview
+
+        Args:
+            widget (Gtk.Widget)
+            event (Gdk.EventKey)
+
+        Returns:
+            True to stop other handlers from being invoked for the event.
+        """
+        if (event.keyval == Gdk.KEY_Left or
+            event.keyval == Gdk.KEY_Up or
+            event.keyval == Gdk.KEY_Page_Up or
+            (event.state and event.state == Gdk.ModifierType.SHIFT_MASK and
+            event.keyval == Gdk.KEY_space)):
+            self.book.page_prev()
+            return True
+        elif (event.keyval == Gdk.KEY_Right or
+            event.keyval == Gdk.KEY_Down or
+            event.keyval == Gdk.KEY_Page_Down or
+            event.keyval == Gdk.KEY_space):
+            self.book.page_next()
+            return True
+
+        return False
+
+    def on_key_press_event(self, widget, event):
+        """Handles key presses
+
+        Args:
+            widget (Gtk.Widget)
+            event (Gdk.EventKey)
+
+        Returns:
+            True to stop other handlers from being invoked for the event.
+        """
+        if (event.state and event.state == Gdk.ModifierType.CONTROL_MASK and
+            event.keyval == Gdk.KEY_f):
+            self.search_bar.set_search_mode(True)
+            self.search_entry.grab_focus()
+            return True
+
+        if (event.state and event.state == Gdk.ModifierType.CONTROL_MASK and
+            event.keyval == Gdk.KEY_g):
+            self.book.find_next()
+            return True
+
+        if (event.state and
+            event.state == Gdk.ModifierType.SHIFT_MASK |
+                           Gdk.ModifierType.CONTROL_MASK and
+            event.keyval == Gdk.KEY_G):
+            self.book.find_prev()
+            return True
+
+        return False
 
     @GtkTemplate.Callback
     def on_open_btn(self, widget):
