@@ -9,20 +9,18 @@ Seneca is an epub reader made to fit in GNOME.
 
 ## Installation
 
-Download the files, extract and then run the following inside the folder:
-
+To download:
 ```
-mkdir builddir
-cd builddir
-meson ..
-ninja
-sudo ninja install
+git clone git@github.com:dyskette/seneca.git
+cd seneca
 ```
 
-To run:
-
+To build and install, seneca uses [meson](http://mesonbuild.com) with
+[ninja](https://ninja-build.org). Run the following commands:
 ```
-seneca
+meson builddir
+ninja -C builddir
+sudo ninja -C builddir install
 ```
 
 ## Requirements
@@ -43,4 +41,4 @@ For running:
 
 ## License
 
-This software is under the GPLv3. See [COPYING](COPYING).
+This software is under the GPLv3. See the [COPYING](COPYING) file.
