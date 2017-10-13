@@ -2,6 +2,7 @@
 
 import os
 import sys
+import locale
 import gettext
 
 import gi
@@ -14,7 +15,11 @@ if __name__ == "__main__":
     extensiondir = '@extensiondir@'
 
     sys.path.insert(1, pkgdatadir)
-    gettext.install('seneca', localedir)
+
+    locale.bindtextdomain('seneca', localedir)
+    locale.textdomain('seneca')
+    gettext.bindtextdomain('seneca', localedir)
+    gettext.textdomain('seneca')
 
     resource = Gio.Resource.load(os.path.join(pkgdatadir, 'seneca.gresource'))
     resource._register()
