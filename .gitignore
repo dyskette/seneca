@@ -4,6 +4,8 @@
 
 # Compiled
 *.gresource
+builddir/
+translation-build/
 
 # GNOME Builder
 .flatpak-builder
