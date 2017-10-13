@@ -59,6 +59,7 @@ class Application(Gtk.Application):
         logger.info('Activate')
         if not self.get_windows():
             window = ApplicationWindow(application=self)
+            window.connect('delete-event', self.on_delete_event)
             window.present()
 
     def do_shutdown(self):
