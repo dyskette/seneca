@@ -137,9 +137,9 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         except BookError as e:
             error_code = e.args[0]
             if error_code == 0:
-                self.infobar_lbl_title.set_text(_('This file could not be opened'))
+                self.infobar_lbl_title.set_text(_('This file could not be opened.'))
             elif error_code == 1:
-                self.infobar_lbl_title.set_text(_('This book could not be opened'))
+                self.infobar_lbl_title.set_text(_('This book could not be opened.'))
             self.infobar_lbl_msg.set_text(e.args[1])
             self.infobar.show()
             logger.warning(e.args[1])
