@@ -18,6 +18,8 @@
 import logging
 logger = logging.getLogger(__name__)
 
+from gettext import gettext as _
+
 import gi
 gi.require_version('Gdk', '3.0')
 gi.require_version('Gtk', '3.0')
@@ -43,6 +45,9 @@ class ApplicationWindow(Gtk.ApplicationWindow):
     toc_treeview = GtkTemplate.Child()
     toc_treestore = GtkTemplate.Child()
     main_popover = GtkTemplate.Child()
+    infobar = GtkTemplate.Child()
+    infobar_lbl_title = GtkTemplate.Child()
+    infobar_lbl_msg = GtkTemplate.Child()
     book_view = GtkTemplate.Child()
     prev_btn = GtkTemplate.Child()
     next_btn = GtkTemplate.Child()
@@ -130,8 +135,14 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         try:
             self.book.set_doc(_gfile)
         except BookError as e:
-            logger.error('Book couldn\'t be opened: {}'.format(e))
-            #TODO: Use an application notification.
+            error_code = e.args[0]
+            if error_code == 0:
+                self.infobar_lbl_title.set_text(_('This file could not be opened'))
+            elif error_code == 1:
+                self.infobar_lbl_title.set_text(_('This book could not be opened'))
+            self.infobar_lbl_msg.set_text(e.args[1])
+            self.infobar.show()
+            logger.warning(e.args[1])
         else:
             self.book_toc.populate_store()
 
@@ -262,6 +273,10 @@ class ApplicationWindow(Gtk.ApplicationWindow):
     def on_toc_btn_toggled(self, widget):
         visible = self.grid_sidebar.get_visible()
         self.grid_sidebar.set_visible(not visible)
+
+    @GtkTemplate.Callback
+    def on_infobar_btn_clicked(self, widget):
+        self.infobar.hide()
 
     def on_search_mode_enabled(self, widget, paramspec):
         search_mode = self.search_bar.get_search_mode()

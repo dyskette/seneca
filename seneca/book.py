@@ -18,6 +18,8 @@
 import logging
 logger = logging.getLogger(__name__)
 
+from gettext import gettext as _
+
 import gi
 gi.require_version('Gdk', '3.0')
 gi.require_version('Soup', '2.4')
@@ -374,7 +376,7 @@ class Book(WebKit2.WebView):
         try:
             path = gfile.get_path()
             if not path:
-                raise BookError('Empty path!')
+                raise BookError(0, _('Empty path!'))
 
             logger.info('Opening:' + path)
 

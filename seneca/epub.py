@@ -18,6 +18,8 @@
 import logging
 logger = logging.getLogger(__name__)
 
+from gettext import gettext as _
+
 import zipfile
 import posixpath
 from lxml import etree
@@ -65,22 +67,22 @@ class Epub(GObject.GObject):
 
     def _open(self, epub_path):
         if not GLib.file_test(epub_path, GLib.FileTest.EXISTS):
-            raise BookError('No such file or directory: {0}'.format(epub_path))
+            raise BookError(0, _('No such file or directory: {0}').format(epub_path))
 
         if not GLib.file_test(epub_path, GLib.FileTest.IS_REGULAR):
-            raise BookError('Path is a directory: {0}'.format(epub_path))
+            raise BookError(0, _('Path is a directory: {0}').format(epub_path))
 
         try:
             archive = zipfile.ZipFile(epub_path, 'r', compression=zipfile.ZIP_DEFLATED, allowZip64=True)
         except zipfile.BadZipFile as e:
-            raise BookError('Bad file: {0}'.format(epub_path))
+            raise BookError(0, _('Bad file: {0}').format(epub_path))
         except zipfile.LargeZipFile as e:
-            raise BookError('Epub file too big'.format(epub_path))
+            raise BookError(0, _('File is too big').format(epub_path))
 
         try:
             assert (archive.read('mimetype') == b'application/epub+zip'), 'Wrong mimetype!'
         except (KeyError, AssertionError) as e:
-            raise BookError('Not an epub file: {0}'.format(epub_path))
+            raise BookError(1, _('Not an epub file: {0}').format(epub_path))
 
         container = archive.read('META-INF/container.xml')
         parser = etree.XMLParser(encoding='utf-8')

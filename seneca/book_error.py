@@ -17,5 +17,11 @@
 
 class BookError(Exception):
 
-    def __init__(self, message):
-        Exception.__init__(self, message)
+    def __init__(self, code, message):
+        """Initialize BookError class
+
+        Args:
+            code (int)
+            message (str)
+        """
+        Exception.__init__(self, code, message)
