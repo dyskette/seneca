@@ -71,30 +71,27 @@ class Application(Gtk.Application):
         Gtk.Application.do_shutdown(self)
 
     def do_open(self, files, n_files, hint):
-        logger.info('Open')
+        """Open file(s) in current or new window(s).
+
+        Args:
+            files ([Gio.File])
+            n_files (int)
+            hint (str)
+        """
         if not self.get_windows():
-            w = ApplicationWindow(application=self)
-            w.connect('delete-event', self.on_delete_event)
+            self.activate()
 
         windows = self.get_windows()
-
-        for giofile in files:
-            for window in windows:
-                if window.book.get_path() == giofile.get_path():
-                    window.open_file(giofile)
-                    window.present()
-                    break
-            else:
-                for window in windows:
-                    if window.book.get_doc() is None:
-                        window.open_file(giofile)
-                        window.present()
-                        break
-                else:
-                    window = ApplicationWindow(application=self)
-                    window.connect('delete-event', self.on_delete_event)
-                    window.open_file(giofile)
-                    window.present()
+        for window in windows:
+            if (not window.book.doc.path or
+                window.book.doc.path == files[0].get_path()):
+                window.open_file(files.pop(0))
+                break
+        else:
+            window = ApplicationWindow(application=self)
+            window.connect('delete-event', self.on_delete_event)
+            window.present()
+            window.open_file(files.pop(0))
 
     def on_delete_event(self, window, event):
         """Close window, save settings and quit.
