@@ -40,7 +40,7 @@ XLINK = '{http://www.w3.org/1999/xlink}'
 
 class Epub(GObject.GObject):
 
-    def __init__(self, path):
+    def __init__(self):
         GObject.GObject.__init__(self)
 
         self.version = 1.2
@@ -63,9 +63,7 @@ class Epub(GObject.GObject):
 
         self.path = ''
 
-        self._open(path)
-
-    def _open(self, epub_path):
+    def open(self, epub_path):
         if not GLib.file_test(epub_path, GLib.FileTest.EXISTS):
             raise BookError(0, _('No such file or directory: {0}').format(epub_path))
 

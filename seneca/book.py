@@ -230,23 +230,23 @@ class Book(WebKit2.WebView):
         self.dbus_helper = DBusHelper()
 
         # Variables
-        self.doc = None
-        self.identifier = None
+        self.doc = Epub()
+        self.identifier = ''
 
-        self.__matches_list = None
+        self.__matches_list = []
         self.__is_match_prev = False
         self.__page_turning = False
 
         # Signals
-        self.on_reload_chapter_id = None
+        self.on_reload_chapter_id = 0
         self.on_load_changed_id = self.connect('load-changed', self.on_load_change)
         self.on_decide_policy_id = self.connect('decide-policy', self.on_decide_policy)
-        self.on_load_set_pos_id = None
-        self.on_load_by_fragment_id = None
-        self.on_load_by_search_id = None
-        self.on_resize_id = None
-        self.on_text_found_id = None
-        self.on_text_not_found_id = None
+        self.on_load_set_pos_id = 0
+        self.on_load_by_fragment_id = 0
+        self.on_load_by_search_id = 0
+        self.on_resize_id = 0
+        self.on_text_found_id = 0
+        self.on_text_not_found_id = 0
 
     def get_path_fragment(self, uri):
         """Use Soup.URI to split uri
@@ -294,7 +294,7 @@ class Book(WebKit2.WebView):
             logger.info('Changing chapter')
             self.doc.set_page_by_path(path)
             if fragment:
-                if self.on_load_by_fragment_id is None:
+                if not self.on_load_by_fragment_id:
                     self.on_load_by_fragment_id = self.connect('load-changed',
                                                                self.on_load_by_fragment,
                                                                fragment)
@@ -373,6 +373,9 @@ class Book(WebKit2.WebView):
         Raises:
             BookError
         """
+        if self.on_reload_chapter_id:
+            self.doc.disconnect(self.on_reload_chapter_id)
+
         try:
             path = gfile.get_path()
             if not path:
@@ -380,17 +383,10 @@ class Book(WebKit2.WebView):
 
             logger.info('Opening:' + path)
 
-            doc = Epub(path)
+            self.doc.open(path)
         except BookError as e:
-            raise
+            raise e
         else:
-            if self.doc == doc:
-                return
-
-            if self.doc is not None:
-                self.doc.disconnect(self.on_reload_chapter_id)
-
-            self.doc = doc
             self.prepare_book()
 
     def prepare_book(self):
@@ -411,11 +407,11 @@ class Book(WebKit2.WebView):
         self.set_chapter(chapter)
         self.reload_chapter()
 
-        if self.on_reload_chapter_id is None:
+        if not self.on_reload_chapter_id:
             self.on_reload_chapter_id = self.doc.connect('notify::page',
                                                          self.reload_chapter)
 
-        if self.on_load_set_pos_id is None:
+        if not self.on_load_set_pos_id:
             position = self.settings.get_position(self.identifier)
             self.on_load_set_pos_id = self.connect('load-changed',
                                                    self.on_load_set_pos,
@@ -499,7 +495,7 @@ class Book(WebKit2.WebView):
             logger.info('Setting position on load')
             self.set_scroll_position(position)
             self.disconnect(self.on_load_set_pos_id)
-            self.on_load_set_pos_id = None
+            self.on_load_set_pos_id = 0
 
     def on_load_by_fragment(self, webview, load_event, fragment):
         """If the load event has finished, scroll to fragment
@@ -512,7 +508,7 @@ class Book(WebKit2.WebView):
         if load_event is WebKit2.LoadEvent.FINISHED:
             self.set_scroll_to_fragment(fragment)
             self.disconnect(self.on_load_by_fragment_id)
-            self.on_load_by_fragment_id = None
+            self.on_load_by_fragment_id = 0
 
     def on_load_by_search(self, webview, load_event):
         """If the load event has finished, find the next or previous match
@@ -527,7 +523,7 @@ class Book(WebKit2.WebView):
             else:
                 self.find_next()
             self.disconnect(self.on_load_by_search_id)
-            self.on_load_by_search_id = None
+            self.on_load_by_search_id = 0
 
     def on_resize(self, webview, gdk_rectangle):
         """Call position function on every size change
@@ -628,7 +624,7 @@ class Book(WebKit2.WebView):
 
     def page_next(self):
         """Start DBUS call to change position to next page"""
-        if not self.doc:
+        if not self.doc.path:
             return
 
         if (self.on_load_set_pos_id or
@@ -666,7 +662,7 @@ class Book(WebKit2.WebView):
                 except BookError as e:
                     pass
                 else:
-                    if self.on_load_set_pos_id is None:
+                    if not self.on_load_set_pos_id:
                         position = 0.0
                         self.on_load_set_pos_id = self.connect('load-changed',
                                                              self.on_load_set_pos,
@@ -674,7 +670,7 @@ class Book(WebKit2.WebView):
 
     def page_prev(self):
         """Start DBUS call to change position to previous page"""
-        if not self.doc:
+        if not self.doc.path:
             return
 
         if (self.on_load_set_pos_id or
@@ -712,7 +708,7 @@ class Book(WebKit2.WebView):
                 except BookError as e:
                     pass
                 else:
-                    if self.on_load_set_pos_id is None:
+                    if not self.on_load_set_pos_id:
                         position = 100.0
                         self.on_load_set_pos_id = self.connect('load-changed',
                                                              self.on_load_set_pos,
@@ -744,7 +740,7 @@ class Book(WebKit2.WebView):
 
     def get_chapter(self):
         """Returns an int as chapter"""
-        if self.doc:
+        if self.doc.path:
             return self.doc.get_page()
         else:
             return None
@@ -755,53 +751,47 @@ class Book(WebKit2.WebView):
         Args:
             chapter (int)
         """
-        if self.doc:
+        if self.doc.path:
             self.doc.set_page(chapter)
 
     def chapter_next(self):
-        if self.doc:
+        if self.doc.path:
             try:
                 self.doc.go_next()
             except BookError as e:
                 raise e
 
     def chapter_prev(self):
-        if self.doc:
+        if self.doc.path:
             try:
                 self.doc.go_prev()
             except BookError as e:
                 raise e
 
     def get_current_path(self):
-        if self.doc:
+        if self.doc.path:
             return self.doc.get_current_path()
         else:
             return None
 
     def refresh_view(self):
         """Start the restyling of current chapter"""
-        if self.doc:
+        if self.doc.path:
             self.setup_view()
             position = self.settings.get_position(self.identifier)
             self.set_scroll_position(position)
 
     def get_title(self):
-        if self.doc:
+        if self.doc.path:
             return self.doc.title
         else:
             return None
 
     def get_author(self):
-        if self.doc:
+        if self.doc.path:
             creator_list = self.doc.get_metadata('creator')
             if creator_list:
                 return creator_list[0]
-        else:
-            return None
-
-    def get_path(self):
-        if self.doc:
-            return self.doc.path
         else:
             return None
 
@@ -811,15 +801,15 @@ class Book(WebKit2.WebView):
         Args:
             search_text (str)
         """
-        if not self.doc:
+        if not self.doc.path:
             return
 
         if search_text:
             web_find_controller = self.get_find_controller()
-            if self.on_text_found_id is None:
+            if not self.on_text_found_id:
                 self.on_text_found_id = web_find_controller.connect('found-text',
                                                                     self.on_found_text)
-            if self.on_text_not_found_id is None:
+            if not self.on_text_not_found_id:
                 self.on_text_not_found_id = web_find_controller.connect('failed-to-find-text',
                                                                         self.on_text_not_found)
             max_match_count = 1000
@@ -837,14 +827,14 @@ class Book(WebKit2.WebView):
         web_find_controller.search_finish()
         if self.on_text_found_id:
             web_find_controller.disconnect(self.on_text_found_id)
-            self.on_text_found_id = None
+            self.on_text_found_id = 0
         if self.on_text_not_found_id:
             web_find_controller.disconnect(self.on_text_not_found_id)
-            self.on_text_not_found_id = None
-        self.__matches_list = None
+            self.on_text_not_found_id = 0
+        self.__matches_list = []
 
     def find_next(self):
-        if not self.doc:
+        if not self.doc.path:
             return
 
         if not self.__matches_list:
@@ -856,7 +846,7 @@ class Book(WebKit2.WebView):
         self.adjust_scroll_position()
 
     def find_prev(self):
-        if not self.doc:
+        if not self.doc.path:
             return
 
         if not self.__matches_list:
@@ -907,8 +897,8 @@ class Book(WebKit2.WebView):
 
         if path is not None and path != self.doc.get_current_path():
             self.doc.set_page_by_path(path)
-            if self.on_load_by_search_id is None:
-                if self.__is_match_prev and self.on_load_set_pos_id is None:
+            if not self.on_load_by_search_id:
+                if self.__is_match_prev and not self.on_load_set_pos_id:
                     position = 100.0
                     self.on_load_set_pos_id = self.connect('load-changed',
                                                            self.on_load_set_pos,
