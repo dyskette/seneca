@@ -234,7 +234,7 @@ class Epub(GObject.GObject):
         if self.version == 3.0:
             pass
 
-    def _bytes_to_elem(self, content_bytes, html=True):
+    def _bytes_to_elem(self, content_bytes, html):
         if html:
             parser = etree.HTMLParser(encoding='utf-8')
         else:
@@ -455,7 +455,7 @@ class Epub(GObject.GObject):
         found_list = []
         for path in self.spine:
             res = self.get_resource(path)
-            res_elem = self._bytes_to_elem(res)
+            res_elem = self._bytes_to_elem(res, True)
             res_body = res_elem.xpath('//*[local-name() = "body"]')
 
             for body in res_body:
