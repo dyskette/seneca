@@ -326,8 +326,7 @@ class Book(WebKit2.WebView):
             if self.jump_to_path_fragment(path, fragment):
                 return
         except BookError as e:
-            error_str = str(e)
-            logger.error('Could not get resource:' + error_str)
+            error_str = e.args[1]
             request.finish_error(GLib.Error(error_str))
         else:
             bytes = self.doc.get_resource(path)
