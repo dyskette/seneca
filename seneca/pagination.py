@@ -15,14 +15,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
 import logging
-logger = logging.getLogger(name='webextensions.pagination')
-
-import gi
 from gi.repository import Gio, GLib
 
+logger = logging.getLogger(name='webextensions.pagination')
 SENECA_INNER_WRAPPER = '<div id="SenecaInnerWrapper">\n{}\n</div>'
+
 
 class Server:
 
