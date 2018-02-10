@@ -15,76 +15,64 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import logging
-logger = logging.getLogger(__name__)
+import gi
 
-import posixpath
-from lxml import etree
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk, GObject
+
+from .gi_composites import GtkTemplate
 
 PATH_COL = 1
 FRAG_COL = 2
 
-class Toc:
 
-    def __init__(self, book, treeview, treestore):
-        self.book = book
-        self.treeview = treeview
-        self.treestore = treestore
+@GtkTemplate(ui='/com/github/dyskette/Seneca/ui/toc-dialog.ui')
+class TocDialog(Gtk.Dialog):
+    __gtype_name__ = 'TocDialog'
 
-        selection = self.treeview.get_selection()
-        selection.connect('changed', self.on_selection_changed)
+    toc_treeview = GtkTemplate.Child()
+    toc_treestore = GtkTemplate.Child()
 
-    def on_selection_changed(self, selection):
-        logger.info('Selection changed')
-        treemodel, treeiter = selection.get_selected()
+    __gsignals__ = {
+        'toc-item-activated': (GObject.SIGNAL_RUN_FIRST, None, (str, str)),
+    }
 
-        if treeiter:
-            path, fragment = treemodel.get(treeiter, PATH_COL, FRAG_COL)
+    def __init__(self, window):
+        Gtk.Dialog.__init__(self, transient_for=window, modal=True)
+        self.init_template()
 
-            logger.info('Path: {0}'.format(path))
-            self.book.jump_to_path_fragment(path, fragment)
+    def populate_store(self, toc_list):
+        def child_store(list_child, parent_iter):
+            title = list_child.get('title')
+            path = list_child.get('path')
+            fragment = list_child.get('fragment')
 
-    def initialize_selection(self, current_path):
-        logger.info('Selecting active chapter in treeview')
-        selection = self.treeview.get_selection()
-        selection.disconnect_by_func(self.on_selection_changed)
+            item_iter = self.toc_treestore.append(parent_iter,
+                                                  [title, path, fragment])
 
-        storeiter = self.treestore.get_iter_first()
-        while storeiter != None:
-            path = self.treestore.get(storeiter, PATH_COL)[0]
-            if current_path in path:
-                logger.info('Path found in tree: {0}'.format(current_path))
-                break
+            children = list_child.get('children')
+            if not children:
+                return
 
-            iter_parent = self.treestore.iter_parent(storeiter)
-            iter_children = self.treestore.iter_children(storeiter)
-            iter_next = self.treestore.iter_next(storeiter)
+            for child_row in children:
+                child_store(child_row, item_iter)
 
-            if iter_children:
-                storeiter = iter_children
-            elif not iter_next and iter_parent:
-                iter_next = self.treestore.iter_next(iter_parent)
-                storeiter = iter_next
-            else:
-                storeiter = iter_next
-        else:
-            logger.info('Path not found in tree: {0}'.format(current_path))
+        for toc_row in toc_list:
+            child_store(toc_row, None)
 
-        if storeiter:
-            treepath = self.treestore.get_path(storeiter)
-            self.treeview.expand_to_path(treepath)
-            selection.select_iter(storeiter)
-        else:
-            selection.unselect_all()
-            self.treeview.do_unselect_all(self.treeview)
+        self.toc_treeview.set_model(self.toc_treestore)
 
-        selection.connect('changed', self.on_selection_changed)
+    def select_active_chapter(self, chapter_path, fragment):
+        # TODO: Implement function
+        pass
 
-    def populate_store(self):
-        logger.info('Populating tree store')
-        self.treestore.clear()
-        doc = self.book.get_doc()
-        doc.populate_store(self.treestore)
+    @GtkTemplate.Callback
+    def on_toc_treeview_row_activated(self, treeview, path, treeview_column):
+        model = treeview.get_model()
+        if model is None:
+            return
 
-        current_path = self.book.get_current_path()
-        self.initialize_selection(current_path)
+        treeiter = model.get_iter(path)
+        path, fragment = model.get(treeiter, PATH_COL, FRAG_COL)
+
+        self.emit('toc-item-activated', path, fragment)

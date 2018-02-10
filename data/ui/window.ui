@@ -2,15 +2,6 @@
 <!-- Generated with glade 3.20.0 -->
 <interface>
   <requires lib="gtk+" version="3.20"/>
-  <object class="GtkTreeStore" id="toc_treestore">
-    <columns>
-      <!-- column-name title -->
-      <column type="gchararray"/>
-      <!-- column-name path -->
-      <column type="gchararray"/>
-      <!-- column-name fragment -->
-      <column type="gchararray"/>
-    </columns>
   </object>
   <template class="ApplicationWindow" parent="GtkApplicationWindow">
     <property name="can_focus">False</property>
@@ -22,55 +13,21 @@
         <property name="visible">True</property>
         <property name="can_focus">False</property>
         <child>
-          <object class="GtkPaned" id="hpaned">
             <property name="visible">True</property>
-            <property name="can_focus">True</property>
             <child>
-              <object class="GtkGrid" id="grid_sidebar">
                 <property name="can_focus">False</property>
                 <child>
-                  <object class="GtkScrolledWindow" id="toc_sw">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
-                    <property name="hscrollbar_policy">never</property>
                     <child>
-                      <object class="GtkTreeView" id="toc_treeview">
-                        <property name="width_request">200</property>
                         <property name="visible">True</property>
-                        <property name="can_focus">True</property>
-                        <property name="hexpand">True</property>
-                        <property name="vexpand">True</property>
-                        <property name="model">toc_treestore</property>
-                        <property name="headers_visible">False</property>
-                        <property name="search_column">0</property>
-                        <child internal-child="selection">
-                          <object class="GtkTreeSelection"/>
-                        </child>
-                        <child>
-                          <object class="GtkTreeViewColumn" id="toc_treeview_column">
-                            <property name="title" translatable="yes">Title</property>
-                            <child>
-                              <object class="GtkCellRendererText" id="toc_cellrenderer_text">
-                                <property name="ellipsize">end</property>
-                              </object>
-                              <attributes>
-                                <attribute name="text">0</attribute>
-                              </attributes>
-                            </child>
-                          </object>
-                        </child>
                       </object>
                     </child>
                   </object>
                   <packing>
-                    <property name="left_attach">0</property>
-                    <property name="top_attach">0</property>
-                    <property name="width">3</property>
-                    <property name="height">3</property>
                   </packing>
                 </child>
                 <style>
-                  <class name="sidebar"/>
                 </style>
               </object>
               <packing>
@@ -343,16 +300,13 @@
           </packing>
         </child>
         <child>
-          <object class="GtkToggleButton" id="toc_btn">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="receives_default">True</property>
-            <signal name="toggled" handler="on_toc_btn_toggled" swapped="no"/>
             <child>
               <object class="GtkImage">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="icon_name">view-list-symbolic</property>
               </object>
             </child>
           </object>
@@ -381,20 +335,24 @@
         </child>
         <child>
           <object class="GtkToggleButton" id="search_btn">
+          <object class="GtkButton" id="toc_btn">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <property name="receives_default">True</property>
+            <signal name="clicked" handler="on_toc_btn_clicked" swapped="no"/>
             <child>
               <object class="GtkImage">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="icon_name">edit-find-symbolic</property>
+                <property name="icon_name">view-list-symbolic</property>
               </object>
             </child>
           </object>
           <packing>
             <property name="pack_type">end</property>
             <property name="position">3</property>
+            <property name="position">4</property>
           </packing>
         </child>
       </object>

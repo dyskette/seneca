@@ -31,7 +31,7 @@ from .book_error import BookError
 from .dialogs import FileChooserDialog
 from .font import pangoFontDesc, cssFont
 from .settings import Settings
-from .toc import Toc
+from .toc import TocDialog
 
 @GtkTemplate(ui='/com/github/dyskette/Seneca/ui/window.ui')
 class ApplicationWindow(Gtk.ApplicationWindow):
@@ -41,9 +41,6 @@ class ApplicationWindow(Gtk.ApplicationWindow):
     open_menu = GtkTemplate.Child()
     toc_btn = GtkTemplate.Child()
     grid = GtkTemplate.Child()
-    grid_sidebar = GtkTemplate.Child()
-    toc_treeview = GtkTemplate.Child()
-    toc_treestore = GtkTemplate.Child()
     main_popover = GtkTemplate.Child()
     infobar = GtkTemplate.Child()
     infobar_lbl_title = GtkTemplate.Child()
@@ -73,7 +70,6 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         self.init_template()
         self.settings = Settings()
         self.book = Book(self.settings)
-        self.book_toc = Toc(self.book, self.toc_treeview, self.toc_treestore)
         self.gtk_settings = Gtk.Settings.get_default()
 
         color_variant = GLib.Variant.new_string(self.settings.color)
@@ -144,8 +140,6 @@ class ApplicationWindow(Gtk.ApplicationWindow):
             self.infobar.show()
             logger.warning(e.args[1])
         else:
-            self.book_toc.populate_store()
-
             self.header_bar.set_title(self.book.get_title())
             self.header_bar.set_subtitle(self.book.get_author())
 
@@ -270,9 +264,17 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         self.change_lineheight(self.settings.lineheight + 0.2)
 
     @GtkTemplate.Callback
-    def on_toc_btn_toggled(self, widget):
-        visible = self.grid_sidebar.get_visible()
-        self.grid_sidebar.set_visible(not visible)
+    def on_toc_btn_clicked(self, widget):
+        chapter_path, fragment = self.book.get_chapter_path_fragment()
+        toc_list = self.book.get_toc()
+        toc_dialog = TocDialog(self)
+
+        toc_dialog.populate_store(toc_list)
+        toc_dialog.select_active_chapter(chapter_path, fragment)
+        toc_dialog.connect('toc-item-activated',
+                           self.on_toc_item_activated)
+        toc_dialog.run()
+        toc_dialog.destroy()
 
     @GtkTemplate.Callback
     def on_infobar_btn_clicked(self, widget):
@@ -409,3 +411,7 @@ class ApplicationWindow(Gtk.ApplicationWindow):
                 self.application.open(files, '')
 
         context.finish(True, False, time)
+
+    def on_toc_item_activated(self, toc_dialog, path, fragment):
+        self.book.set_chapter_path_fragment(path, fragment)
+        toc_dialog.destroy()
