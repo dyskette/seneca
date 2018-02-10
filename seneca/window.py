@@ -15,12 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import logging
-logger = logging.getLogger(__name__)
-
 from gettext import gettext as _
 
 import gi
+
 gi.require_version('Gdk', '3.0')
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gdk, Gtk, Gio, GLib, GObject
@@ -32,6 +30,9 @@ from .dialogs import FileChooserDialog
 from .font import pangoFontDesc, cssFont
 from .settings import Settings
 from .toc import TocDialog
+
+TIMEOUT_REVEALER = 500
+
 
 @GtkTemplate(ui='/com/github/dyskette/Seneca/ui/window.ui')
 class ApplicationWindow(Gtk.ApplicationWindow):
@@ -46,8 +47,6 @@ class ApplicationWindow(Gtk.ApplicationWindow):
     infobar_lbl_title = GtkTemplate.Child()
     infobar_lbl_msg = GtkTemplate.Child()
     book_view = GtkTemplate.Child()
-    prev_btn = GtkTemplate.Child()
-    next_btn = GtkTemplate.Child()
     font_btn = GtkTemplate.Child()
     font_less = GtkTemplate.Child()
     font_default = GtkTemplate.Child()
@@ -63,6 +62,15 @@ class ApplicationWindow(Gtk.ApplicationWindow):
     search_prev_btn = GtkTemplate.Child()
     search_next_btn = GtkTemplate.Child()
     open_btn = GtkTemplate.Child()
+    overlay_controls = GtkTemplate.Child()
+    bottom_revealer = GtkTemplate.Child()
+    prev_btn_revealer = GtkTemplate.Child()
+    next_btn_revealer = GtkTemplate.Child()
+    bottom_scale = GtkTemplate.Child()
+    scale_label = GtkTemplate.Child()
+    prev_btn = GtkTemplate.Child()
+    next_btn = GtkTemplate.Child()
+    progress_adjustment = GtkTemplate.Child()
 
     def __init__(self, application):
         Gtk.ApplicationWindow.__init__(self, application=application)
@@ -71,6 +79,7 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         self.settings = Settings()
         self.book = Book(self.settings)
         self.gtk_settings = Gtk.Settings.get_default()
+        self.overlay_timeout_source = None
 
         color_variant = GLib.Variant.new_string(self.settings.color)
         color_action = Gio.SimpleAction.new_stateful('color',
@@ -118,9 +127,18 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         self.grid.drag_dest_set(Gtk.DestDefaults.ALL,
                                 targets,
                                 Gdk.DragAction.COPY)
+
+        self.overlay_controls.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK)
+
         self.grid.connect('drag-data-received', self.on_drag_data_received)
+
         self.book.connect('scroll-event', self.on_scroll_event)
         self.book.connect('key-press-event', self.on_book_key_press_event)
+        self.book.connect('scroll-percent-changed',
+                          self.on_scroll_percent_changed)
+
+        self.book_view.connect('motion-notify-event',
+                               self.on_motion_notify_event)
         self.book_view.pack_end(self.book, True, True, 0)
         self.book_view.show_all()
 
@@ -131,14 +149,7 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         try:
             self.book.set_doc(_gfile)
         except BookError as e:
-            error_code = e.args[0]
-            if error_code == 0:
-                self.infobar_lbl_title.set_text(_('This file could not be opened.'))
-            elif error_code == 1:
-                self.infobar_lbl_title.set_text(_('This book could not be opened.'))
-            self.infobar_lbl_msg.set_text(e.args[1])
-            self.infobar.show()
-            logger.warning(e.args[1])
+            self.show_infobar(e)
         else:
             self.header_bar.set_title(self.book.get_title())
             self.header_bar.set_subtitle(self.book.get_author())
@@ -150,13 +161,29 @@ class ApplicationWindow(Gtk.ApplicationWindow):
             self.search_btn.set_sensitive(True)
             self.open_menu.set_sensitive(True)
 
+    def show_infobar(self, error):
+        error_code = error.args[0]
+        error_message = error.args[1]
+        epub_path = error.args[2]
+
+        if error_code == 0:
+            self.infobar_lbl_title.set_text(
+                _('Could not load book') + ' «' + epub_path + '»')
+            self.infobar_lbl_title.show()
+        elif error_code == 1:
+            self.infobar_lbl_title.hide()
+
+        self.infobar_lbl_msg.set_text(error_message)
+        self.infobar.show()
+
     def change_window_color(self, color):
-        dark = self.gtk_settings.get_property('gtk-application-prefer-dark-theme')
+        dark_theme = 'gtk-application-prefer-dark-theme'
+        dark = self.gtk_settings.get_property(dark_theme)
 
         if color == 'dark' and not dark:
-            self.gtk_settings.set_property('gtk-application-prefer-dark-theme', True)
+            self.gtk_settings.set_property(dark_theme, True)
         elif color in ('light', 'sepia') and dark:
-            self.gtk_settings.set_property('gtk-application-prefer-dark-theme', False)
+            self.gtk_settings.set_property(dark_theme, False)
 
     def refresh_font_button(self):
         pango_font_desc = pangoFontDesc(self.settings.fontfamily,
@@ -310,7 +337,7 @@ class ApplicationWindow(Gtk.ApplicationWindow):
     def on_size_allocate(self, window, gdk_rectangle):
         self.settings.maximized = self.is_maximized()
         if not self.is_maximized():
-            self.settings.width , self.settings.height = self.get_size()
+            self.settings.width, self.settings.height = self.get_size()
 
     def on_scroll_event(self, widget, event):
         """Handles scroll on webview
@@ -343,13 +370,13 @@ class ApplicationWindow(Gtk.ApplicationWindow):
             event.keyval == Gdk.KEY_Up or
             event.keyval == Gdk.KEY_Page_Up or
             (event.state and event.state == Gdk.ModifierType.SHIFT_MASK and
-            event.keyval == Gdk.KEY_space)):
+             event.keyval == Gdk.KEY_space)):
             self.book.page_prev()
             return True
         elif (event.keyval == Gdk.KEY_Right or
-            event.keyval == Gdk.KEY_Down or
-            event.keyval == Gdk.KEY_Page_Down or
-            event.keyval == Gdk.KEY_space):
+              event.keyval == Gdk.KEY_Down or
+              event.keyval == Gdk.KEY_Page_Down or
+              event.keyval == Gdk.KEY_space):
             self.book.page_next()
             return True
 
@@ -365,21 +392,22 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         Returns:
             True to stop other handlers from being invoked for the event.
         """
-        if (event.state and event.state == Gdk.ModifierType.CONTROL_MASK and
-            event.keyval == Gdk.KEY_f):
+        if (event.state
+                and event.state == Gdk.ModifierType.CONTROL_MASK
+                and event.keyval == Gdk.KEY_f):
             self.search_bar.set_search_mode(True)
             self.search_entry.grab_focus()
             return True
 
-        if (event.state and event.state == Gdk.ModifierType.CONTROL_MASK and
-            event.keyval == Gdk.KEY_g):
+        if (event.state
+                and event.state == Gdk.ModifierType.CONTROL_MASK
+                and event.keyval == Gdk.KEY_g):
             self.book.find_next()
             return True
 
-        if (event.state and
-            event.state == Gdk.ModifierType.SHIFT_MASK |
-                           Gdk.ModifierType.CONTROL_MASK and
-            event.keyval == Gdk.KEY_G):
+        if (event.state
+                and event.state == Gdk.ModifierType.SHIFT_MASK | Gdk.ModifierType.CONTROL_MASK
+                and event.keyval == Gdk.KEY_G):
             self.book.find_prev()
             return True
 
@@ -398,7 +426,6 @@ class ApplicationWindow(Gtk.ApplicationWindow):
         file_chooser.destroy()
 
     def on_drag_data_received(self, widget, context, x, y, data, info, time):
-        logger.info('Drag data received')
 
         if info == self.uri_list:
             uris = data.get_uris()
@@ -411,6 +438,107 @@ class ApplicationWindow(Gtk.ApplicationWindow):
                 self.application.open(files, '')
 
         context.finish(True, False, time)
+
+    def on_motion_notify_event(self, grid, event_motion):
+        """
+        When the mouse moves on top of the grid, we show the children of the
+        revealers
+
+        Args:
+            grid (Gtk.Box)
+            event_motion (Gdk.EventMotion)
+        """
+        if not self.bottom_revealer.get_reveal_child():
+            self.bottom_revealer.set_reveal_child(True)
+            self.prev_btn_revealer.set_reveal_child(True)
+            self.next_btn_revealer.set_reveal_child(True)
+
+        self.set_overlay_timeout()
+
+        return True
+
+    def clear_timeout_overlay_source(self):
+        """
+        Remove the source timeout object
+
+        """
+        if self.overlay_timeout_source:
+            self.overlay_timeout_source.unref()
+            self.overlay_timeout_source.destroy()
+
+        self.overlay_timeout_source = None
+
+    def set_overlay_timeout(self):
+        """
+        Create a timeout source object that will call another function when
+        it runs out of time.
+
+        """
+        self.clear_timeout_overlay_source()
+
+        source = GLib.timeout_source_new(1000)
+        source.set_callback(self.on_overlay_timeout, None)
+        source.attach(None)
+
+        self.overlay_timeout_source = source
+
+    def on_overlay_timeout(self, data):
+        """
+        Callback function that hides the revealer's children on the overlay
+
+        :param data:
+        :return: False to keep spreading the event
+        """
+        self.bottom_revealer.set_reveal_child(False)
+        self.prev_btn_revealer.set_reveal_child(False)
+        self.next_btn_revealer.set_reveal_child(False)
+
+        self.clear_timeout_overlay_source()
+
+        return False
+
+    @GtkTemplate.Callback
+    def on_overlay_controls_enter_notify_event(self, overlay, event):
+        """
+        The ::enter-notify-event will be emitted when the pointer enters
+        the widget’s window.
+
+        :type overlay: Gtk.Overlay
+        :type event: Gdk.EventCrossing
+
+        :return: False to keep spreading the event
+        """
+        self.clear_timeout_overlay_source()
+
+        return False
+
+    def on_scroll_percent_changed(self, book, percent):
+        self.progress_adjustment.set_value(percent)
+
+    @GtkTemplate.Callback
+    def on_bottom_scale_change_value(self, range, scroll, value):
+        """
+        Callback function to adjust position on book by the given
+        value of the range based object
+
+        :type range: Gtk.Range
+        :type scroll: Gtk.ScrollType
+        :type value: float
+
+        :return: False to keep spreading the event
+        """
+        self.book.set_book_position(value)
+
+        return False
+
+    @GtkTemplate.Callback
+    def on_bottom_scale_value_changed(self, range):
+        """
+        Callback function when the value of GtkScale changed
+
+        :param range: The Gtk.Range object that triggered the event
+        """
+        self.scale_label.set_label(str('%.1f' % range.get_value()) + ' %')
 
     def on_toc_item_activated(self, toc_dialog, path, fragment):
         self.book.set_chapter_path_fragment(path, fragment)
