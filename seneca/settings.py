@@ -17,9 +17,8 @@
 
 import os
 import configparser
-
-import gi
 from gi.repository import GLib
+
 
 class Settings:
     def __init__(self):
@@ -28,26 +27,25 @@ class Settings:
         self.path = os.path.join(userconfdir, prgname, 'settings.ini')
         self.conf = configparser.ConfigParser()
 
-        self.default = {'margin' : '20',
-                        'color' : 'light',
-                        'fontfamily' : 'Sans',
-                        'fontweight' : '400',
-                        'fontstyle' : 'normal',
-                        'fontstretch' : 'normal',
-                        'fontsize' : '20',
-                        'lineheight' : '1.6',
-                        'paginate' : 'yes',
-                        'maximized' : 'no',
-                        'height' : '600',
-                        'width' : '800'}
+        self.default = {'margin': '20',
+                        'color': 'light',
+                        'fontfamily': 'Sans',
+                        'fontweight': '400',
+                        'fontstyle': 'normal',
+                        'fontstretch': 'normal',
+                        'fontsize': '20',
+                        'lineheight': '1.6',
+                        'paginate': 'yes',
+                        'maximized': 'no',
+                        'height': '600',
+                        'width': '800'}
 
-        self.colors = {}
-        self.colors['light'] = {'foreground': '#333333',
-                                'background': '#ffffff'}
-        self.colors['sepia'] = {'foreground': '#5b4636',
-                                'background': '#f4ecd8'}
-        self.colors['dark'] = {'foreground': '#eeeeee',
-                               'background': '#232729'}
+        self.colors = {'light': {'foreground': '#333333',
+                                 'background': '#ffffff'},
+                       'sepia': {'foreground': '#5b4636',
+                                 'background': '#f4ecd8'},
+                       'dark': {'foreground': '#eeeeee',
+                                'background': '#232729'}}
 
         self.load()
 
