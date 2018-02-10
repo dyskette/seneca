@@ -28,71 +28,8 @@ from gi.repository import Gdk, Gio, GLib, Soup, WebKit2
 
 from .epub import Epub
 from .book_error import BookError
+from .javascript import BODY_JS, WRAPPER_JS, COL_JS, COL_JS_REMOVE
 
-BODY_JS = '''
-document.body.style.backgroundColor = '{bg}';
-document.body.style.color = '{fg}';
-document.body.style.margin = '0px';
-'''
-
-WRAPPER_JS = '''
-var wrapper = document.getElementById('SenecaInnerWrapper');
-
-wrapper.style.backgroundColor = '{bg}';
-wrapper.style.color = '{fg}';
-wrapper.style.margin = '0px {mg}px 0px {mg}px';
-wrapper.style.fontFamily = '{fs0}';
-wrapper.style.fontWeight = '{fs1}';
-wrapper.style.fontStyle = '{fs2}';
-wrapper.style.fontStretch = '{fs3}';
-wrapper.style.fontSize = '{fs4}px';
-wrapper.style.lineHeight = '{lh}';
-'''
-
-COL_JS_INNER = '''
-function resizeColumn() {
-    console.log('resizeColumn was called');
-    if (window.innerWidth < 800) {
-        console.log('View width less than 800');
-        document.body.style.columnWidth = window.innerWidth + 'px';
-        document.body.style.height = (window.innerHeight - 40) + 'px';
-        console.log('Column width is ' + window.innerWidth + 'px');
-    }
-    else {
-        console.log('View width equal or more than 800');
-        document.body.style.columnWidth = Math.floor(window.innerWidth / 2) + 'px';
-        document.body.style.height = (window.innerHeight - 40) + 'px';
-        document.body.style.columnCount = '2';
-        console.log('Column width is ' + Math.floor(window.innerWidth / 2) + 'px');
-    }
-}
-resizeColumn();
-window.addEventListener('resize', resizeColumn);
-'''
-
-COL_JS = '''
-if (!document.getElementById('columnJS')) {{
-    var child_script = document.createElement('script');
-    child_script.type = 'text/javascript';
-    child_script.id = 'columnJS'
-    child_script.innerHTML = `{0}`;
-    document.body.appendChild(child_script);
-}}
-document.body.style.margin = '20px 0px 20px 0px';
-document.body.style.columnGap = '0px';
-'''.format(COL_JS_INNER)
-
-COL_JS_REMOVE = '''
-if (document.getElementById('columnJS')) {
-    document.body.style.columnWidth = 'auto';
-    document.body.style.height = 'auto';
-    document.body.style.columnCount = 'auto';
-    document.body.style.overflow = 'auto';
-    document.body.style.margin = 'auto';
-    document.body.style.columnGap = 'auto';
-    document.body.removeChild(document.getElementById('columnJS'));
-}
-'''
 
 class DBusHelper:
 
