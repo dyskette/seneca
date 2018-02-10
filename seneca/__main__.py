@@ -15,8 +15,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
 import sys
+
 
 def main(extensiondir):
     import logging
@@ -33,6 +33,7 @@ def main(extensiondir):
 
     logging.info('Finished')
     sys.exit(ret)
+
 
 if __name__ == '__main__':
     main()
