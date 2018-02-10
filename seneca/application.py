@@ -17,31 +17,38 @@
 
 import os
 import logging
-logger = logging.getLogger(__name__)
-
 import gi
+
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gio, GLib
 
 from .window import ApplicationWindow
 from .dialogs import AboutDialog, InfoDialog
 
+logger = logging.getLogger(__name__)
+
+
 class Application(Gtk.Application):
 
     def __init__(self, extensiondir):
+        """
+        Initialize application class
+
+        :param extensiondir: The path to the webkitextension directory
+        """
         logger.info('Init')
         Gtk.Application.__init__(self,
                                  application_id='com.github.dyskette.Seneca',
                                  resource_base_path='/com/github/dyskette/Seneca',
                                  flags=Gio.ApplicationFlags.HANDLES_OPEN)
 
+        self.extensiondir = extensiondir
+        # self.settings = Gio.Settings.new('com.github.dyskette.Seneca')
+
         GLib.set_application_name('Seneca')
         GLib.set_prgname('com.github.dyskette.Seneca')
-
         # Set environment variable for webextension pythonloader
-        self.extensiondir = extensiondir
         GLib.setenv('PYTHONPATH', self.extensiondir, True)
-        # self.settings = Gio.Settings.new('com.github.dyskette.Seneca')
 
     def do_startup(self):
         logger.info('Startup')
@@ -71,12 +78,12 @@ class Application(Gtk.Application):
         Gtk.Application.do_shutdown(self)
 
     def do_open(self, files, n_files, hint):
-        """Open file(s) in current or new window(s).
+        """
+        Open files in current or new windows
 
-        Args:
-            files ([Gio.File])
-            n_files (int)
-            hint (str)
+        :param files: A list of Gio.File objects
+        :param n_files: The number of files to open
+        :param hint: None
         """
         if not self.get_windows():
             self.activate()
@@ -94,14 +101,12 @@ class Application(Gtk.Application):
             window.open_file(files.pop(0))
 
     def on_delete_event(self, window, event):
-        """Close window, save settings and quit.
+        """
+        Close window, save settings and quit.
 
-        Args:
-            window (Gtk.Window)
-            event (Gdk.Event)
-
-        Returns:
-            True to stop other handlers from being invoked for the event.
+        :param window: The window which called the function
+        :param event: A Gdk.Event
+        :return: True to stop other handlers from being invoked for the event.
         """
         if len(self.get_windows()) > 1:
             window.settings.save()
