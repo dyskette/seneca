@@ -18,8 +18,10 @@
 from . import VERSION
 
 import gi
+
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
+
 
 class AboutDialog(Gtk.AboutDialog):
 
@@ -31,6 +33,7 @@ class AboutDialog(Gtk.AboutDialog):
                                  copyright='Copyright © 2017 Eddy Castillo',
                                  logo_icon_name='com.github.dyskette.seneca',
                                  version=VERSION)
+
 
 class FileChooserDialog(Gtk.FileChooserDialog):
 
@@ -47,8 +50,8 @@ class FileChooserDialog(Gtk.FileChooserDialog):
         filefilter.add_mime_type('application/epub+zip')
         self.set_filter(filefilter)
 
+
 class InfoDialog(Gtk.Dialog):
 
     def __init__(self, title, parent):
         pass
-
