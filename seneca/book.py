@@ -28,95 +28,10 @@ from gi.repository import Gdk, Gio, GLib, Soup, WebKit2
 
 from .epub import Epub
 from .book_error import BookError
+from .dbus_helper import DBusHelper
 from .javascript import BODY_JS, WRAPPER_JS, COL_JS, COL_JS_REMOVE
 
 
-class DBusHelper:
-
-    def __init__(self):
-        self.signals = {}
-        application = Gio.Application.get_default()
-        self.bus_conn = application.get_dbus_connection()
-        self.bus_path = '/com/github/dyskette/Seneca/Paginate'
-        self.bus_name = 'com.github.dyskette.Seneca.Paginate'
-
-    def call(self, call, dbus_args, callback, page_id, *args):
-        """Create proxy to access method
-
-        Args:
-            call (str)
-            dbus_args (GLib.Variant or None)
-            callback (function)
-            page_id (int)
-        """
-        try:
-            page_bus_name = self.bus_name + '.Page%s' % page_id
-            Gio.DBusProxy.new(self.bus_conn,
-                              Gio.DBusProxyFlags.NONE,
-                              None,
-                              page_bus_name,
-                              self.bus_path,
-                              self.bus_name,
-                              None,
-                              self.__on_get_proxy,
-                              call,
-                              dbus_args,
-                              callback,
-                              *args)
-        except Exception as e:
-            logger.error("DBusHelper::call():", e)
-
-    def connect(self, signal, callback, page_id):
-        """Connect callback to object signals
-
-        Args:
-            signal (str)
-            callback (function)
-            page_id (int)
-        """
-        try:
-            bus = El().get_dbus_connection()
-            proxy_bus = PROXY_BUS % page_id
-            subscribe_id = bus.signal_subscribe(None, proxy_bus, signal,
-                                                PROXY_PATH, None,
-                                                Gio.DBusSignalFlags.NONE,
-                                                callback)
-            self.__signals[page_id] = (bus, subscribe_id)
-        except Exception as e:
-            print("DBusHelper::connect():", e)
-
-    def disconnect(self, page_id):
-        """Disconnect signal
-
-        Args:
-            page_id (int)
-        """
-        if page_id in self.__signals.keys():
-            (bus, subscribe_id) = self.__signals[page_id]
-            bus.signal_unsubscribe(subscribe_id)
-            del self.__signals[page_id]
-
-    def __on_get_proxy(self, source, result, call, dbus_args, callback, *args):
-        """Launch call and connect it to callback
-
-        Args:
-            source (GObject.Object) - Gio.DBusProxy which started this function
-            result (Gio.AsyncResult)
-            call (str)
-            dbus_args (GLib.Variant or None)
-            callback (function)
-        """
-        try:
-            proxy = source.new_finish(result)
-            proxy.call(call,
-                       dbus_args,
-                       Gio.DBusCallFlags.NO_AUTO_START,
-                       1000,
-                       None,
-                       callback,
-                       *args)
-        except Exception as e:
-            logger.error("DBusHelper::__on_get_proxy():", e)
 
 class Book(WebKit2.WebView):
 

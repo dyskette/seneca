@@ -122,7 +122,7 @@ class Paginate(Server):
         logging.basicConfig(level=level)
         self.extension = None
         self.bus_conn = None
-        self.bus_path = '/com/github/dyskette/Seneca/Paginate'
+        self.bus_path = '/com/github/dyskette/SenecaPaginate'
         self.bus_name = 'com.github.dyskette.Seneca.Paginate'
         self.page_bus_name = None
 
