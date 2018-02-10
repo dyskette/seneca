@@ -10,8 +10,10 @@ seneca_sources = [
   'dialogs.py',
   'book.py',
   'book_error.py',
+  'dbus_helper.py',
   'epub.py',
   'font.py',
+  'javascript.py',
   'settings.py',
   'toc.py',
   'pagination.py'
