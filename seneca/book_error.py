@@ -15,13 +15,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+
 class BookError(Exception):
 
-    def __init__(self, code, message):
-        """Initialize BookError class
-
-        Args:
-            code (int)
-            message (str)
+    def __init__(self, error_type, message, path=None):
         """
-        Exception.__init__(self, code, message)
+        Initialize BookError class
+
+        :param error_type: 0 when opening the file, 1 when processing something
+        :param message: Error message to show
+        :param path: Path to file
+        """
+        Exception.__init__(self, error_type, message, path)
